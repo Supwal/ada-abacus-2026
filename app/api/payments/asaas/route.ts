@@ -1,8 +1,7 @@
 ﻿export const runtime = 'edge'
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
+import { getToken } from 'next-auth/jwt';
 import { prisma } from '@/lib/db';
 import {
   createOrGetAsaasCustomer,
@@ -22,14 +21,14 @@ export const dynamic = 'force-dynamic';
  */
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id || !session?.user?.email) {
+    const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
+    if (!token?.sub || !token?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const userId = session.user.id;
-    const userEmail = session.user.email;
-    const userName = (session.user as any)?.name || session.user.email?.split('@')[0] || 'UsuÃ¡rio';
+    const userId = (token!.sub as string);
+    const userEmail = (token!.email as string);
+    const userName = (token?.name as string) || (token!.email as string)?.split('@')[0] || 'UsuÃ¡rio';
 
     const body = await request.json();
     const { planType, price, billingType, creditCard } = body;
@@ -45,7 +44,7 @@ export async function POST(request: NextRequest) {
     const customerData: AsaasCustomer = {
       name: userName,
       email: userEmail,
-      phone: (session.user as any)?.phone || '',
+      phone: (token as any)?.phone || '',
     };
 
     const customerId = await createOrGetAsaasCustomer(customerData);
@@ -133,8 +132,8 @@ export async function POST(request: NextRequest) {
  */
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
+    const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
+    if (!token?.sub) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -160,7 +159,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    if (!payment || payment.userId !== session.user.id) {
+    if (!payment || payment.userId !== (token!.sub as string)) {
       return NextResponse.json({ error: 'Pagamento nÃ£o encontrado' }, { status: 404 });
     }
 
@@ -177,7 +176,7 @@ export async function GET(request: NextRequest) {
       // Se pagamento foi confirmado, atualizar assinatura
       if (asaasPayment.status === 'CONFIRMED') {
         await prisma.subscription.upsert({
-          where: { userId: session.user.id },
+          where: { userId: (token!.sub as string) },
           update: {
             planType: payment.planType,
             price: payment.price,
@@ -186,7 +185,7 @@ export async function GET(request: NextRequest) {
             startDate: new Date(),
           },
           create: {
-            userId: session.user.id,
+            userId: (token!.sub as string),
             planType: payment.planType,
             price: payment.price,
             status: 'ativo',

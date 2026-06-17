@@ -1,8 +1,7 @@
 ﻿export const runtime = 'edge'
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/auth';
+import { getToken } from 'next-auth/jwt';
 import { prisma } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
@@ -10,12 +9,12 @@ export const dynamic = 'force-dynamic';
 // GET - Buscar assinatura do usuÃ¡rio
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
+    const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
+    if (!token?.sub) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const userId = session.user.id;
+    const userId = (token!.sub as string);
 
     const subscription = await prisma.subscription.findUnique({
       where: { userId }
@@ -45,12 +44,12 @@ export async function GET(request: NextRequest) {
 // POST - Criar/Atualizar assinatura
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
+    const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
+    if (!token?.sub) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const userId = session.user.id;
+    const userId = (token!.sub as string);
     const body = await request.json();
 
     const { planType, price } = body;

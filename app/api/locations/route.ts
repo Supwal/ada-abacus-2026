@@ -2,20 +2,19 @@
 
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import { getToken } from 'next-auth/jwt';
 import { prisma } from '@/lib/db';
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
     
-    if (!session?.user?.email) {
+    if (!token?.email) {
       return NextResponse.json({ error: 'NÃ£o autorizado' }, { status: 401 });
     }
 
     const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
+      where: { email: (token!.email as string) },
     });
 
     if (!user) {
@@ -36,14 +35,14 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
     
-    if (!session?.user?.email) {
+    if (!token?.email) {
       return NextResponse.json({ error: 'NÃ£o autorizado' }, { status: 401 });
     }
 
     const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
+      where: { email: (token!.email as string) },
     });
 
     if (!user) {

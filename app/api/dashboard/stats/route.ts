@@ -2,17 +2,16 @@
 
 
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth";
+import { getToken } from "next-auth/jwt";
 import { prisma } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
 
-    if (!session?.user?.id) {
+    if (!token?.sub) {
       return NextResponse.json({ error: "NÃ£o autorizado" }, { status: 401 });
     }
 
@@ -29,7 +28,7 @@ export async function GET(req: NextRequest) {
     // Agendamentos de hoje
     const todayAppointments = await prisma.appointment.count({
       where: {
-        userId: session.user.id,
+        userId: (token!.sub as string),
         date: {
           gte: new Date(today.setHours(0, 0, 0, 0)),
           lte: endOfDay
@@ -40,7 +39,7 @@ export async function GET(req: NextRequest) {
     // Ganhos do mÃªs
     const monthlyEarnings = await prisma.earning.aggregate({
       where: {
-        userId: session.user.id,
+        userId: (token!.sub as string),
         date: {
           gte: startOfMonth,
           lte: endOfDay
@@ -54,7 +53,7 @@ export async function GET(req: NextRequest) {
     // Despesas do mÃªs
     const monthlyExpenses = await prisma.expense.aggregate({
       where: {
-        userId: session.user.id,
+        userId: (token!.sub as string),
         date: {
           gte: startOfMonth,
           lte: endOfDay
@@ -68,7 +67,7 @@ export async function GET(req: NextRequest) {
     // Total de clientes
     const totalClients = await prisma.client.count({
       where: {
-        userId: session.user.id
+        userId: (token!.sub as string)
       }
     });
 
@@ -76,7 +75,7 @@ export async function GET(req: NextRequest) {
     const earningsLast7Days = await prisma.earning.groupBy({
       by: ['date'],
       where: {
-        userId: session.user.id,
+        userId: (token!.sub as string),
         date: {
           gte: last7Days,
           lte: endOfDay
