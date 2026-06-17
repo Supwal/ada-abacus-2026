@@ -1,0 +1,675 @@
+
+'use client';
+
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ArrowLeft } from "lucide-react";
+import Link from "next/link";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+
+export default function NovoAgendamentoPage() {
+  const router = useRouter();
+  const [formData, setFormData] = useState({
+    codigo: '',
+    nomeCliente: '',
+    data: '',
+    horario: '',
+    periodo: '',
+    local: '',
+    status: '',
+    valor: ''
+  });
+
+  const [conflito, setConflito] = useState<any>(null);
+  const [horarioFinalConflito, setHorarioFinalConflito] = useState<string>('');
+  const [avisoMadrugada, setAvisoMadrugada] = useState<string>('');
+  
+  // Função para verificar se é horário de madrugada e calcular a data real
+  const calcularDataReal = (dataSelecionada: string, horario: string) => {
+    if (!dataSelecionada || !horario) return dataSelecionada;
+    
+    const [horaAgendamento, minutoAgendamento] = horario.split(':').map(Number);
+    
+    // Horários de madrugada (00:00 a 05:59)
+    if (horaAgendamento >= 0 && horaAgendamento < 6) {
+      const agora = new Date();
+      const horaAtual = agora.getHours();
+      const minutoAtual = agora.getMinutes();
+      
+      // Converter para minutos desde meia-noite para facilitar comparação
+      const minutosAtual = horaAtual * 60 + minutoAtual;
+      const minutosAgendamento = horaAgendamento * 60 + minutoAgendamento;
+      
+      // Se estamos ANTES da meia-noite (06:00-23:59) e agendamos para madrugada
+      // então é para a madrugada do dia seguinte
+      if (horaAtual >= 6) {
+        const [ano, mes, dia] = dataSelecionada.split('-').map(Number);
+        const dataObj = new Date(ano, mes - 1, dia);
+        dataObj.setDate(dataObj.getDate() + 1); // Adicionar 1 dia
+        
+        const novoAno = dataObj.getFullYear();
+        const novoMes = String(dataObj.getMonth() + 1).padStart(2, '0');
+        const novoDia = String(dataObj.getDate()).padStart(2, '0');
+        
+        return `${novoAno}-${novoMes}-${novoDia}`;
+      }
+      
+      // Se já estamos na madrugada (00:00-05:59)
+      // e o horário agendado é MENOR que o atual, é para o próximo dia
+      if (horaAtual >= 0 && horaAtual < 6) {
+        if (minutosAgendamento < minutosAtual) {
+          // Horário já passou, é para amanhã
+          const [ano, mes, dia] = dataSelecionada.split('-').map(Number);
+          const dataObj = new Date(ano, mes - 1, dia);
+          dataObj.setDate(dataObj.getDate() + 1);
+          
+          const novoAno = dataObj.getFullYear();
+          const novoMes = String(dataObj.getMonth() + 1).padStart(2, '0');
+          const novoDia = String(dataObj.getDate()).padStart(2, '0');
+          
+          return `${novoAno}-${novoMes}-${novoDia}`;
+        }
+      }
+    }
+    
+    return dataSelecionada;
+  };
+  
+  // Função para gerar código sequencial por data específica
+  const gerarCodigoSequencial = (dataAgendamento: string) => {
+    if (!dataAgendamento) {
+      return 'Cli001';
+    }
+    
+    // Buscar apenas agendamentos da data específica
+    const chaveData = `agendamentos_${dataAgendamento}`;
+    const agendamentosDoDia = JSON.parse(localStorage.getItem(chaveData) || '[]');
+    
+    // Extrair todos os números dos códigos existentes
+    const numerosExistentes = agendamentosDoDia
+      .map((ag: any) => {
+        const match = ag.codigo?.match(/Cli(\d+)/);
+        return match ? parseInt(match[1], 10) : 0;
+      })
+      .filter((num: number) => num > 0);
+    
+    // Encontrar o próximo número disponível
+    let proximoNumero = 1;
+    if (numerosExistentes.length > 0) {
+      // Ordenar os números existentes
+      numerosExistentes.sort((a: number, b: number) => a - b);
+      
+      // Encontrar o maior número e adicionar 1
+      const maiorNumero = Math.max(...numerosExistentes);
+      proximoNumero = maiorNumero + 1;
+    }
+    
+    const novoCodigo = `Cli${proximoNumero.toString().padStart(3, '0')}`;
+    
+    console.log(`Código gerado para ${dataAgendamento}: ${novoCodigo} (${agendamentosDoDia.length} agendamentos existentes, maior número: ${numerosExistentes.length > 0 ? Math.max(...numerosExistentes) : 0})`);
+    
+    return novoCodigo;
+  };
+
+  // Função para converter período em minutos
+  const convertePeriodoParaMinutos = (periodo: string) => {
+    if (periodo.includes('minutos')) {
+      return parseInt(periodo.split('-')[0]);
+    } else if (periodo.includes('hora')) {
+      return parseInt(periodo.split('-')[0]) * 60;
+    }
+    return 0;
+  };
+
+  // Função para formatar horário final baseado em minutos
+  const calcularHorarioFinal = (horarioInicial: string, duracaoMinutos: number) => {
+    const [hora, minuto] = horarioInicial.split(':').map(Number);
+    const totalMinutos = hora * 60 + minuto + duracaoMinutos;
+    const horaFinal = Math.floor(totalMinutos / 60) % 24;
+    const minutoFinal = totalMinutos % 60;
+    return `${String(horaFinal).padStart(2, '0')}:${String(minutoFinal).padStart(2, '0')}`;
+  };
+
+  // Função para verificar conflito de horário
+  const verificarConflitoHorario = (data: string, horario: string, periodo: string) => {
+    if (!data || !horario || !periodo) {
+      return { conflito: false, agendamentoConflitante: null, horarioFinal: '' };
+    }
+
+    const chaveData = `agendamentos_${data}`;
+    const agendamentosDoDia = JSON.parse(localStorage.getItem(chaveData) || '[]');
+
+    const duracaoMinutos = convertePeriodoParaMinutos(periodo);
+    const [horaInicio, minutoInicio] = horario.split(':').map(Number);
+    const inicioEmMinutos = horaInicio * 60 + minutoInicio;
+    const fimEmMinutos = inicioEmMinutos + duracaoMinutos;
+
+    for (const agendamento of agendamentosDoDia) {
+      const [horaExistente, minutoExistente] = agendamento.horario.split(':').map(Number);
+      const inicioExistenteEmMinutos = horaExistente * 60 + minutoExistente;
+      const duracaoExistenteMinutos = convertePeriodoParaMinutos(agendamento.periodo);
+      const fimExistenteEmMinutos = inicioExistenteEmMinutos + duracaoExistenteMinutos;
+
+      // Verificar se há sobreposição
+      if (
+        (inicioEmMinutos >= inicioExistenteEmMinutos && inicioEmMinutos < fimExistenteEmMinutos) ||
+        (fimEmMinutos > inicioExistenteEmMinutos && fimEmMinutos <= fimExistenteEmMinutos) ||
+        (inicioEmMinutos <= inicioExistenteEmMinutos && fimEmMinutos >= fimExistenteEmMinutos)
+      ) {
+        // Calcular horário final do agendamento conflitante
+        const horarioFinal = calcularHorarioFinal(agendamento.horario, duracaoExistenteMinutos);
+        
+        return {
+          conflito: true,
+          agendamentoConflitante: agendamento,
+          horarioFinal: horarioFinal
+        };
+      }
+    }
+
+    return { conflito: false, agendamentoConflitante: null, horarioFinal: '' };
+  };
+
+  // Inicializar dados automáticos - executa apenas uma vez
+  useEffect(() => {
+    const obterDataAtual = () => {
+      const hoje = new Date();
+      const ano = hoje.getFullYear();
+      const mes = String(hoje.getMonth() + 1).padStart(2, '0');
+      const dia = String(hoje.getDate()).padStart(2, '0');
+      return `${ano}-${mes}-${dia}`; // Formato YYYY-MM-DD usando data local
+    };
+
+    const obterHorarioAtual = () => {
+      const agora = new Date();
+      return agora.toTimeString().slice(0, 5); // Formato HH:MM
+    };
+
+    // Gerar código apenas se não há código ainda (evita regeneração)
+    if (!formData.codigo) {
+      const dataAtual = obterDataAtual();
+      
+      // Recuperar valores salvos do localStorage apenas se forem do dia atual
+      const dataUltimosDados = localStorage.getItem('dataUltimosDados') || '';
+      
+      let ultimoLocal = '';
+      let ultimoValor = 'R$ 0,00';
+      let ultimoPeriodo = '';
+      let ultimoStatus = 'confirmado';
+      
+      // Verificar se os últimos dados são de hoje
+      if (dataUltimosDados === dataAtual) {
+        ultimoLocal = localStorage.getItem('ultimoLocal') || '';
+        ultimoValor = localStorage.getItem('ultimoValor') || 'R$ 0,00';
+        ultimoPeriodo = localStorage.getItem('ultimoPeriodo') || '';
+        ultimoStatus = localStorage.getItem('ultimoStatus') || 'confirmado';
+      } else {
+        // Limpar valores antigos
+        localStorage.removeItem('ultimoLocal');
+        localStorage.removeItem('ultimoValor');
+        localStorage.removeItem('ultimoPeriodo');
+        localStorage.removeItem('ultimoStatus');
+        localStorage.removeItem('dataUltimosDados');
+      }
+
+      const codigoGerado = gerarCodigoSequencial(dataAtual);
+      
+      console.log('Código gerado para novo agendamento:', codigoGerado);
+      console.log('Data atual local:', dataAtual);
+      console.log('Último local salvo (do dia):', ultimoLocal);
+      console.log('Último valor salvo (do dia):', ultimoValor);
+      console.log('Último período salvo (do dia):', ultimoPeriodo);
+      console.log('Último status salvo (do dia):', ultimoStatus);
+      
+      setFormData(prev => ({
+        ...prev,
+        codigo: codigoGerado,
+        nomeCliente: codigoGerado, // Repetir o mesmo código, mas editável
+        data: dataAtual,
+        horario: obterHorarioAtual(),
+        local: ultimoLocal,
+        valor: ultimoValor,
+        periodo: ultimoPeriodo,
+        status: ultimoStatus
+      }));
+    }
+  }, []); // Array vazio = executa apenas uma vez
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!formData.codigo || !formData.nomeCliente || !formData.data || !formData.horario || !formData.periodo) {
+      alert('Por favor, preencha todos os campos obrigatórios.');
+      return;
+    }
+
+    // Calcular a data real considerando horários de madrugada
+    const dataReal = calcularDataReal(formData.data, formData.horario);
+    
+    // Verificar conflito de horário na data real
+    const resultadoConflito = verificarConflitoHorario(dataReal, formData.horario, formData.periodo);
+    if (resultadoConflito.conflito) {
+      const agendamentoConflitante = resultadoConflito.agendamentoConflitante;
+      const horarioFinal = resultadoConflito.horarioFinal;
+      alert(`⚠️ Horário não disponível!\n\nJá existe um agendamento:\n\nCliente: ${agendamentoConflitante.nomeCliente}\nHorário: ${agendamentoConflitante.horario} às ${horarioFinal} - está Agendado\n\nPor favor, escolha outro horário.`);
+      return;
+    }
+
+    try {
+      // Calcular horário de término
+      const [horaInicio, minutoInicio] = formData.horario.split(':').map(Number);
+      const periodoMinutos = parseInt(formData.periodo);
+      const minutosTotais = horaInicio * 60 + minutoInicio + periodoMinutos;
+      const horaFim = Math.floor(minutosTotais / 60) % 24;
+      const minutoFim = minutosTotais % 60;
+      const horarioFim = `${String(horaFim).padStart(2, '0')}:${String(minutoFim).padStart(2, '0')}`;
+
+      // Criar ou buscar cliente
+      let clientId = formData.nomeCliente;
+      
+      // Tentar criar o cliente (se já existir, a API retornará o existente)
+      const clientResponse = await fetch('/api/clients', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: formData.nomeCliente,
+          phone: null,
+          notes: null,
+        }),
+      });
+
+      if (clientResponse.ok) {
+        const client = await clientResponse.json();
+        clientId = client.id;
+      }
+
+      // Salvar via API
+      const response = await fetch('/api/appointments', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          date: dataReal,
+          startTime: formData.horario,
+          endTime: horarioFim,
+          status: formData.status === 'confirmado' ? 'scheduled' : formData.status,
+          notes: null,
+          value: formData.valor ? parseFloat(formData.valor.replace('R$', '').replace(',', '.').trim()) : null,
+          paid: false,
+          clientId: clientId,
+          serviceId: 'default',
+          locationId: formData.local || 'default',
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Erro ao salvar agendamento');
+      }
+
+      // Disparar evento customizado para notificar outras páginas
+      window.dispatchEvent(new Event('agendamentoSalvo'));
+
+      // Redirecionar para a página de confirmação
+      router.push('/agenda/confirmacao');
+    } catch (error) {
+      console.error('Erro ao salvar agendamento:', error);
+      alert('Erro ao salvar agendamento. Por favor, tente novamente.');
+    }
+  };
+
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  // Função para gerar novo código manualmente
+  const gerarNovoCodigo = () => {
+    let dataParaCodigo = formData.data;
+    if (!dataParaCodigo) {
+      const hoje = new Date();
+      const ano = hoje.getFullYear();
+      const mes = String(hoje.getMonth() + 1).padStart(2, '0');
+      const dia = String(hoje.getDate()).padStart(2, '0');
+      dataParaCodigo = `${ano}-${mes}-${dia}`;
+    }
+    const novoCodigo = gerarCodigoSequencial(dataParaCodigo);
+    console.log('Novo código gerado manualmente:', novoCodigo);
+    setFormData(prev => ({
+      ...prev,
+      codigo: novoCodigo,
+      nomeCliente: novoCodigo // Atualizar o nome também
+    }));
+  };
+
+  // Regenerar código quando a data mudar
+  useEffect(() => {
+    if (formData.data) {
+      const novoCodigo = gerarCodigoSequencial(formData.data);
+      setFormData(prev => ({
+        ...prev,
+        codigo: novoCodigo,
+        nomeCliente: novoCodigo // Atualizar o nome também
+      }));
+    }
+  }, [formData.data]); // Executar quando a data mudar
+
+  // Verificar se é horário de madrugada e mostrar aviso
+  useEffect(() => {
+    if (formData.data && formData.horario) {
+      const dataReal = calcularDataReal(formData.data, formData.horario);
+      
+      if (dataReal !== formData.data) {
+        // É horário de madrugada que será no dia seguinte - mostrar aviso
+        const [ano, mes, dia] = dataReal.split('-');
+        const dataFormatada = `${dia}/${mes}/${ano}`;
+        setAvisoMadrugada(`⚠️ Horário de madrugada! Este agendamento será salvo para: ${dataFormatada}`);
+      } else {
+        // Verificar se é madrugada mas no mesmo dia
+        const [hora] = formData.horario.split(':').map(Number);
+        const agora = new Date();
+        const horaAtual = agora.getHours();
+        
+        if (hora >= 0 && hora < 6 && horaAtual >= 6) {
+          // É madrugada mas ainda não mostrou aviso (bug?)
+          // Isso não deveria acontecer, mas vamos deixar sem aviso
+          setAvisoMadrugada('');
+        } else if (hora >= 0 && hora < 6 && horaAtual >= 0 && horaAtual < 6) {
+          // Estamos na madrugada agendando para madrugada do mesmo dia
+          const [ano, mes, dia] = formData.data.split('-');
+          const dataFormatada = `${dia}/${mes}/${ano}`;
+          setAvisoMadrugada(`✅ Agendamento para madrugada de hoje: ${dataFormatada}`);
+        } else {
+          setAvisoMadrugada('');
+        }
+      }
+    } else {
+      setAvisoMadrugada('');
+    }
+  }, [formData.data, formData.horario]);
+
+  // Verificar conflitos em tempo real (usando a data real)
+  useEffect(() => {
+    if (formData.data && formData.horario && formData.periodo) {
+      const dataReal = calcularDataReal(formData.data, formData.horario);
+      const resultado = verificarConflitoHorario(dataReal, formData.horario, formData.periodo);
+      setConflito(resultado.conflito ? resultado.agendamentoConflitante : null);
+      setHorarioFinalConflito(resultado.horarioFinal);
+    } else {
+      setConflito(null);
+      setHorarioFinalConflito('');
+    }
+  }, [formData.data, formData.horario, formData.periodo]);
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-pink-50 to-purple-50 p-4">
+      <div className="max-w-md mx-auto">
+        {/* Header */}
+        <div className="mb-6">
+          <Link href="/dashboard" className="text-gray-600 hover:text-gray-800 flex items-center gap-2 mb-4">
+            <ArrowLeft className="h-4 w-4" />
+            Voltar ao Menu
+          </Link>
+          <h1 className="text-2xl font-bold text-gray-900 text-center">
+            Novo Agendamento
+          </h1>
+        </div>
+
+        {/* Form Card */}
+        <Card className="shadow-lg">
+          <CardContent className="p-6">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Data - PRIMEIRO CAMPO */}
+              <div className="space-y-2">
+                <Label htmlFor="data" className="text-sm font-medium text-gray-700">
+                  📅 Data do Agendamento *
+                </Label>
+                <Input
+                  id="data"
+                  type="date"
+                  value={formData.data}
+                  onChange={(e) => handleInputChange('data', e.target.value)}
+                  className="w-full shadow-sm"
+                />
+                <p className="text-xs text-blue-600">
+                  ⚠️ O código será gerado automaticamente baseado na data selecionada
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                {/* Código */}
+                <div className="space-y-2">
+                  <Label htmlFor="codigo" className="text-sm font-medium text-gray-700">
+                    Código
+                  </Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="codigo"
+                      type="text"
+                      value={formData.codigo}
+                      onChange={(e) => handleInputChange('codigo', e.target.value)}
+                      className="flex-1 bg-gray-100 shadow-sm"
+                      placeholder="Cli001"
+                      readOnly
+                    />
+                    <Button
+                      type="button"
+                      onClick={gerarNovoCodigo}
+                      variant="outline"
+                      size="sm"
+                      className="px-3 py-2 text-xs bg-blue-50 hover:bg-blue-100 text-blue-700"
+                      title="Gerar novo código sequencial para esta data"
+                    >
+                      🔄
+                    </Button>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    Código sequencial por data. Clique em 🔄 para gerar um novo.
+                  </p>
+                </div>
+
+                {/* Nome do Cliente */}
+                <div className="space-y-2">
+                  <Label htmlFor="nomeCliente" className="text-sm font-medium text-gray-700">
+                    Nome do Cliente
+                  </Label>
+                  <Input
+                    id="nomeCliente"
+                    type="text"
+                    value={formData.nomeCliente}
+                    onChange={(e) => handleInputChange('nomeCliente', e.target.value)}
+                    className="w-full shadow-sm"
+                    placeholder="Digite o nome do cliente"
+                  />
+                </div>
+              </div>
+
+              {/* Horário */}
+              <div className="space-y-2">
+                <Label htmlFor="horario" className="text-sm font-medium text-gray-700">
+                  Horário
+                </Label>
+                <Input
+                  id="horario"
+                  type="time"
+                  value={formData.horario}
+                  onChange={(e) => handleInputChange('horario', e.target.value)}
+                  className="w-full shadow-sm"
+                />
+                
+                {/* Aviso de Madrugada */}
+                {avisoMadrugada && (
+                  <div className="bg-amber-100 border-2 border-amber-400 text-amber-800 px-4 py-3 rounded-lg text-sm font-medium animate-pulse">
+                    {avisoMadrugada}
+                  </div>
+                )}
+              </div>
+
+              {/* Período */}
+              <div className="space-y-2">
+                <Label htmlFor="periodo" className="text-sm font-medium text-gray-700">
+                  Período
+                </Label>
+                <Select 
+                  key={`periodo-${formData.periodo || 'empty'}`}
+                  onValueChange={(value) => handleInputChange('periodo', value)} 
+                  defaultValue={formData.periodo || undefined}
+                >
+                  <SelectTrigger className="shadow-sm">
+                    <SelectValue placeholder="Selecione o período" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="20-minutos">20 minutos</SelectItem>
+                    <SelectItem value="30-minutos">30 minutos</SelectItem>
+                    <SelectItem value="1-hora">1 hora</SelectItem>
+                    <SelectItem value="2-horas">2 horas</SelectItem>
+                    <SelectItem value="3-horas">3 horas</SelectItem>
+                    <SelectItem value="4-horas">4 horas</SelectItem>
+                    <SelectItem value="5-horas">5 horas</SelectItem>
+                    <SelectItem value="6-horas">6 horas</SelectItem>
+                    <SelectItem value="7-horas">7 horas</SelectItem>
+                    <SelectItem value="8-horas">8 horas</SelectItem>
+                    <SelectItem value="9-horas">9 horas</SelectItem>
+                    <SelectItem value="10-horas">10 horas</SelectItem>
+                    <SelectItem value="11-horas">11 horas</SelectItem>
+                    <SelectItem value="12-horas">12 horas</SelectItem>
+                    <SelectItem value="13-horas">13 horas</SelectItem>
+                    <SelectItem value="14-horas">14 horas</SelectItem>
+                    <SelectItem value="15-horas">15 horas</SelectItem>
+                    <SelectItem value="16-horas">16 horas</SelectItem>
+                    <SelectItem value="17-horas">17 horas</SelectItem>
+                    <SelectItem value="18-horas">18 horas</SelectItem>
+                    <SelectItem value="19-horas">19 horas</SelectItem>
+                    <SelectItem value="20-horas">20 horas</SelectItem>
+                    <SelectItem value="21-horas">21 horas</SelectItem>
+                    <SelectItem value="22-horas">22 horas</SelectItem>
+                    <SelectItem value="23-horas">23 horas</SelectItem>
+                    <SelectItem value="24-horas">24 horas</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {/* Mensagem de Conflito */}
+                {conflito && (
+                  <div className="bg-red-100 border border-red-300 text-red-700 px-3 py-2 rounded-md text-sm">
+                    <strong>⚠️ Horário não disponível!</strong><br />
+                    Já agendado para: <strong>{conflito.nomeCliente}</strong><br />
+                    Horário: <strong>{conflito.horario} às {horarioFinalConflito} - está Agendado</strong>
+                  </div>
+                )}
+                
+                {!conflito && formData.horario && formData.periodo && (
+                  <div className="bg-green-100 border border-green-300 text-green-700 px-3 py-2 rounded-md text-sm">
+                    ✅ Horário disponível!
+                  </div>
+                )}
+              </div>
+
+              {/* Local */}
+              <div className="space-y-2">
+                <Label htmlFor="local" className="text-sm font-medium text-gray-700">
+                  Local
+                </Label>
+                <Select 
+                  key={`local-${formData.local || 'empty'}`}
+                  onValueChange={(value) => handleInputChange('local', value)} 
+                  defaultValue={formData.local || undefined}
+                >
+                  <SelectTrigger className="shadow-sm">
+                    <SelectValue placeholder="Selecione um local" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="clinica-lapa">Clinica Lapa</SelectItem>
+                    <SelectItem value="hotel-maderada">Hotel Maderada</SelectItem>
+                    <SelectItem value="clinica-abc">Clínica ABC</SelectItem>
+                    <SelectItem value="centro-medico">Centro Médico</SelectItem>
+                    <SelectItem value="domicilio">Atendimento domiciliar</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Status do Agendamento */}
+              <div className="space-y-2">
+                <Label htmlFor="status" className="text-sm font-medium text-gray-700">
+                  Status do Agendamento
+                </Label>
+                <Select 
+                  key={`status-${formData.status || 'empty'}`}
+                  onValueChange={(value) => handleInputChange('status', value)} 
+                  defaultValue={formData.status || undefined}
+                >
+                  <SelectTrigger className="shadow-sm">
+                    <SelectValue placeholder="Selecione o status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pendente" className="text-orange-600 font-medium">
+                      <span className="flex items-center gap-2">
+                        <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+                        Pendente
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="confirmado" className="text-green-600 font-medium">
+                      <span className="flex items-center gap-2">
+                        <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                        Confirmado
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="cancelado" className="text-red-600 font-medium">
+                      <span className="flex items-center gap-2">
+                        <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                        Cancelado
+                      </span>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Valor */}
+              <div className="space-y-2">
+                <Label htmlFor="valor" className="text-sm font-medium text-gray-700">
+                  Valor
+                </Label>
+                <Input
+                  id="valor"
+                  type="text"
+                  value={formData.valor}
+                  onChange={(e) => {
+                    // Formatar valor monetário
+                    let value = e.target.value.replace(/\D/g, '');
+                    if (value === '') {
+                      // Se vazio, manter R$ 0,00
+                      handleInputChange('valor', 'R$ 0,00');
+                    } else {
+                      value = (parseInt(value) / 100).toLocaleString('pt-BR', {
+                        style: 'currency',
+                        currency: 'BRL'
+                      });
+                      handleInputChange('valor', value);
+                    }
+                  }}
+                  className="w-full shadow-sm"
+                  placeholder="R$ 0,00"
+                />
+              </div>
+
+              {/* Submit Button */}
+              <Button 
+                type="submit" 
+                className="w-full bg-pink-500 hover:bg-pink-600 text-white py-3 font-medium rounded-lg"
+              >
+                Confirmar Agendamento
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}

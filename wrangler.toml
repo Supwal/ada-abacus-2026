@@ -1,0 +1,21 @@
+name = "ada-abacus-2026"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = ".vercel/output/static"
+
+[vars]
+NODE_ENV = "production"
+NEXTAUTH_URL = "https://ada-abacus-2026.pages.dev"
+
+# Variáveis sensíveis: configure pelo dashboard do Cloudflare Pages
+# Settings → Environment variables:
+#   DATABASE_URL        = sua connection string do PostgreSQL (ou Prisma Accelerate URL)
+#   NEXTAUTH_SECRET     = sua chave secreta do NextAuth
+#   ASAAS_API_KEY       = chave da API do Asaas
+#   ASAAS_SANDBOX       = false (em produção)
+
+[[d1_databases]]
+# Opcional: se quiser usar D1 (SQLite do Cloudflare) no futuro
+# binding = "DB"
+# database_name = "ada-abacus-db"
+# database_id = "seu-database-id"

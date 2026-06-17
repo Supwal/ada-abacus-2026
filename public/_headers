@@ -1,0 +1,22 @@
+
+# Headers for PWA optimization
+
+/*
+  # Security headers
+  X-Frame-Options: SAMEORIGIN
+  X-Content-Type-Options: nosniff
+  X-XSS-Protection: 1; mode=block
+  Referrer-Policy: strict-origin-when-cross-origin
+
+  # PWA caching
+  Cache-Control: public, max-age=31536000, immutable
+
+/service-worker.js
+  Cache-Control: public, max-age=0, must-revalidate
+
+/manifest.json
+  Content-Type: application/manifest+json
+  Cache-Control: public, max-age=86400
+
+/api/*
+  Cache-Control: no-store, no-cache, must-revalidate
