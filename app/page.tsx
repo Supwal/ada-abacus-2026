@@ -7,6 +7,7 @@ import { useEffect } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Calendar, BarChart3, DollarSign, Users } from "lucide-react";
+import Image from "next/image";
 
 export default function HomePage() {
   const { data: session, status } = useSession() || {};
@@ -38,10 +39,10 @@ export default function HomePage() {
       <header className="container mx-auto px-4 py-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-              <BarChart3 className="h-6 w-6 text-white" />
+            <div className="w-10 h-10 relative">
+              <Image src="/logo-ada.png" alt="A.D.A." fill className="object-contain" />
             </div>
-            <span className="font-bold text-2xl text-gray-900">ADA APP</span>
+            <span className="font-bold text-2xl text-gray-900">A.D.A.</span>
           </div>
           <div className="flex items-center space-x-4">
             <Link href="/auth/login">

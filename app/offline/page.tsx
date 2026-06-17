@@ -82,7 +82,7 @@ export default function OfflinePage() {
             💡 Dica
           </h3>
           <p className="text-sm text-blue-800">
-            O ADA APP funciona offline! Você pode visualizar dados salvos anteriormente e suas alterações serão sincronizadas quando a conexão for restaurada.
+            O A.D.A. funciona offline! Você pode visualizar dados salvos anteriormente e suas alterações serão sincronizadas quando a conexão for restaurada.
           </p>
         </div>
 
@@ -111,7 +111,7 @@ export default function OfflinePage() {
         {/* Additional Info */}
         <div className="pt-4 border-t">
           <p className="text-xs text-gray-500">
-            Esta página funciona completamente offline. O ADA APP é um Progressive Web App (PWA) e pode ser instalado no seu dispositivo para acesso rápido.
+            Esta página funciona completamente offline. O A.D.A. é um Progressive Web App (PWA) e pode ser instalado no seu dispositivo para acesso rápido.
           </p>
         </div>
       </Card>

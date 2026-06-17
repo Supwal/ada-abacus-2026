@@ -8,7 +8,8 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { BarChart3, Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
+import Image from "next/image";
 import { toast } from "sonner";
 import { useEffect } from "react";
 
@@ -72,10 +73,10 @@ export default function LoginPage() {
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center space-x-3 mb-4">
-            <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center">
-              <BarChart3 className="h-7 w-7 text-white" />
+            <div className="w-14 h-14 relative">
+              <Image src="/logo-ada.png" alt="A.D.A." fill className="object-contain" />
             </div>
-            <span className="font-bold text-3xl text-gray-900">ADA APP</span>
+            <span className="font-bold text-3xl text-gray-900">A.D.A.</span>
           </div>
           <h1 className="text-2xl font-bold text-gray-900">Bem-vindo de volta</h1>
           <p className="text-gray-600 mt-2">Entre em sua conta para continuar</p>

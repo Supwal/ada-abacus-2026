@@ -218,7 +218,7 @@ export default function LimparDadosPage() {
         <Card className="mt-6 shadow-sm">
           <CardContent className="p-4">
             <div className="text-xs text-gray-500 text-center space-y-1">
-              <p>🔧 <strong>Ferramenta de Desenvolvimento</strong> - ADA APP v1.0</p>
+              <p>🔧 <strong>Ferramenta de Desenvolvimento</strong> - A.D.A. v1.0</p>
               <p>Esta funcionalidade é específica para testes e desenvolvimento do sistema</p>
             </div>
           </CardContent>

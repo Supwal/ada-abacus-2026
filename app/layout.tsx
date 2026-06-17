@@ -11,13 +11,13 @@ import Script from "next/script";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "ADA APP - Assistente de Agenda para Profissional Liberal",
+  title: "A.D.A. - Assistente de Agenda para Profissional Liberal",
   description: "Sistema completo de agendamento e gestão financeira para profissionais autônomos",
-  applicationName: "ADA APP",
+  applicationName: "A.D.A.",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "ADA APP",
+    title: "A.D.A.",
   },
   formatDetection: {
     telephone: false,
@@ -55,7 +55,7 @@ export default function RootLayout({
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="ADA APP" />
+        <meta name="apple-mobile-web-app-title" content="A.D.A." />
         
         {/* iOS Splash Screens */}
         <link
