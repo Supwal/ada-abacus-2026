@@ -1,3 +1,5 @@
+﻿export const runtime = 'edge'
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
@@ -14,7 +16,7 @@ export async function GET(request: NextRequest) {
 
     const userId = session.user.id;
 
-    // Buscar todas as disponibilidades do usuário, incluindo dados da localização
+    // Buscar todas as disponibilidades do usuÃ¡rio, incluindo dados da localizaÃ§Ã£o
     const availabilities = await prisma.availability.findMany({
       where: { userId },
       include: {
@@ -44,10 +46,10 @@ export async function POST(request: NextRequest) {
 
     const { type, date, startTime, endTime, locationId, hourlyRate, maxAppointments, notes, notificationChannel } = body;
 
-    // Validação básica
+    // ValidaÃ§Ã£o bÃ¡sica
     if (!type || !date || !startTime || !endTime || !locationId || !hourlyRate || !maxAppointments || !notificationChannel) {
       return NextResponse.json(
-        { error: 'Campos obrigatórios faltando' },
+        { error: 'Campos obrigatÃ³rios faltando' },
         { status: 400 }
       );
     }

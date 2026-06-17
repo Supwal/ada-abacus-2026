@@ -1,3 +1,5 @@
+﻿export const runtime = 'edge'
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
@@ -14,7 +16,7 @@ export async function GET(request: NextRequest) {
 
     const userId = session.user.id;
 
-    // Buscar todos os packs do usuário
+    // Buscar todos os packs do usuÃ¡rio
     const packs = await prisma.pack.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' }
@@ -39,10 +41,10 @@ export async function POST(request: NextRequest) {
 
     const { name, photos, videos, price, coverImage } = body;
 
-    // Validação básica
+    // ValidaÃ§Ã£o bÃ¡sica
     if (!name || photos === undefined || videos === undefined || price === undefined) {
       return NextResponse.json(
-        { error: 'Campos obrigatórios faltando' },
+        { error: 'Campos obrigatÃ³rios faltando' },
         { status: 400 }
       );
     }

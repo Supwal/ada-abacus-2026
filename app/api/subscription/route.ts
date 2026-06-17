@@ -1,3 +1,5 @@
+﻿export const runtime = 'edge'
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
@@ -5,7 +7,7 @@ import { prisma } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
-// GET - Buscar assinatura do usuário
+// GET - Buscar assinatura do usuÃ¡rio
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -20,7 +22,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (!subscription) {
-      // Retornar assinatura padrão (gratuita)
+      // Retornar assinatura padrÃ£o (gratuita)
       return NextResponse.json({
         id: null,
         userId,
@@ -55,12 +57,12 @@ export async function POST(request: NextRequest) {
 
     if (!planType || price === undefined) {
       return NextResponse.json(
-        { error: 'Campos obrigatórios faltando' },
+        { error: 'Campos obrigatÃ³rios faltando' },
         { status: 400 }
       );
     }
 
-    // Verificar se já existe assinatura
+    // Verificar se jÃ¡ existe assinatura
     const existingSubscription = await prisma.subscription.findUnique({
       where: { userId }
     });

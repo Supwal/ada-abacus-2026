@@ -1,3 +1,5 @@
+﻿export const runtime = 'edge'
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
@@ -27,14 +29,14 @@ export async function POST(request: NextRequest) {
 
     const userId = session.user.id;
     const userEmail = session.user.email;
-    const userName = (session.user as any)?.name || session.user.email?.split('@')[0] || 'Usuário';
+    const userName = (session.user as any)?.name || session.user.email?.split('@')[0] || 'UsuÃ¡rio';
 
     const body = await request.json();
     const { planType, price, billingType, creditCard } = body;
 
     if (!planType || !price || !billingType) {
       return NextResponse.json(
-        { error: 'Campos obrigatórios faltando' },
+        { error: 'Campos obrigatÃ³rios faltando' },
         { status: 400 }
       );
     }
@@ -59,12 +61,12 @@ export async function POST(request: NextRequest) {
       billingType: billingType as 'PIX' | 'BOLETO' | 'CREDIT_CARD' | 'DEBIT_CARD',
       dueDate: dueDateStr,
       value: parseFloat(price as string),
-      description: `Assinatura ${planType === 'basico' ? 'Básica' : 'Completa'} - ADA APP`,
+      description: `Assinatura ${planType === 'basico' ? 'BÃ¡sica' : 'Completa'} - ADA APP`,
       externalReference: `subscription-${userId}-${Date.now()}`,
       notificationEnabled: true,
     };
 
-    // Se for cartão de crédito, adicionar dados do cartão
+    // Se for cartÃ£o de crÃ©dito, adicionar dados do cartÃ£o
     if (billingType === 'CREDIT_CARD' && creditCard) {
       paymentData.creditCard = {
         holderName: creditCard.holderName,
@@ -77,7 +79,7 @@ export async function POST(request: NextRequest) {
 
     const paymentResponse = await createAsaasPayment(paymentData);
 
-    // Salvar referência do pagamento no banco
+    // Salvar referÃªncia do pagamento no banco
     const payment = await prisma.payment.create({
       data: {
         userId,
@@ -142,7 +144,7 @@ export async function GET(request: NextRequest) {
 
     if (!paymentId && !asaasPaymentId) {
       return NextResponse.json(
-        { error: 'paymentId ou asaasPaymentId obrigatório' },
+        { error: 'paymentId ou asaasPaymentId obrigatÃ³rio' },
         { status: 400 }
       );
     }
@@ -159,7 +161,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (!payment || payment.userId !== session.user.id) {
-      return NextResponse.json({ error: 'Pagamento não encontrado' }, { status: 404 });
+      return NextResponse.json({ error: 'Pagamento nÃ£o encontrado' }, { status: 404 });
     }
 
     // Obter status do pagamento no Asaas

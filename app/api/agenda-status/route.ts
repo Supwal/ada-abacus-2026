@@ -1,3 +1,5 @@
+﻿export const runtime = 'edge'
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
@@ -19,7 +21,7 @@ export async function GET(request: NextRequest) {
       where: { userId }
     });
 
-    // Se não existir, criar com status padrão "aberta"
+    // Se nÃ£o existir, criar com status padrÃ£o "aberta"
     if (!agendaStatus) {
       agendaStatus = await prisma.agendaStatus.create({
         data: {

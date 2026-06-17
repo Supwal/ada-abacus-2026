@@ -1,3 +1,5 @@
+﻿export const runtime = 'edge'
+
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
@@ -11,7 +13,7 @@ export async function GET(req: NextRequest) {
     const session = await getServerSession(authOptions);
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+      return NextResponse.json({ error: "NÃ£o autorizado" }, { status: 401 });
     }
 
     const today = new Date();
@@ -19,7 +21,7 @@ export async function GET(req: NextRequest) {
     const endOfDay = new Date(today);
     endOfDay.setHours(23, 59, 59, 999);
     
-    // Último 7 dias para o gráfico
+    // Ãšltimo 7 dias para o grÃ¡fico
     const last7Days = new Date();
     last7Days.setDate(last7Days.getDate() - 6);
     last7Days.setHours(0, 0, 0, 0);
@@ -35,7 +37,7 @@ export async function GET(req: NextRequest) {
       }
     });
 
-    // Ganhos do mês
+    // Ganhos do mÃªs
     const monthlyEarnings = await prisma.earning.aggregate({
       where: {
         userId: session.user.id,
@@ -49,7 +51,7 @@ export async function GET(req: NextRequest) {
       }
     });
 
-    // Despesas do mês
+    // Despesas do mÃªs
     const monthlyExpenses = await prisma.expense.aggregate({
       where: {
         userId: session.user.id,
@@ -70,7 +72,7 @@ export async function GET(req: NextRequest) {
       }
     });
 
-    // Dados dos últimos 7 dias para o gráfico
+    // Dados dos Ãºltimos 7 dias para o grÃ¡fico
     const earningsLast7Days = await prisma.earning.groupBy({
       by: ['date'],
       where: {
@@ -88,7 +90,7 @@ export async function GET(req: NextRequest) {
       }
     });
 
-    // Formatar dados do gráfico preenchendo dias sem dados
+    // Formatar dados do grÃ¡fico preenchendo dias sem dados
     const earningsData = [];
     for (let i = 0; i < 7; i++) {
       const date = new Date();

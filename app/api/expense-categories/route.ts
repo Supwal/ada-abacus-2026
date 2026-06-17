@@ -1,3 +1,5 @@
+﻿export const runtime = 'edge'
+
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
@@ -20,7 +22,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { name } = body;
 
-    // Verifica se a categoria já existe
+    // Verifica se a categoria jÃ¡ existe
     const existingCategory = await prisma.expenseCategory.findUnique({
       where: { name },
     });

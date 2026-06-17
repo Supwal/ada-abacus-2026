@@ -1,3 +1,5 @@
+﻿export const runtime = 'edge'
+
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
@@ -9,7 +11,7 @@ export async function GET(request: NextRequest) {
     const session = await getServerSession(authOptions);
     
     if (!session?.user?.email) {
-      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+      return NextResponse.json({ error: 'NÃ£o autorizado' }, { status: 401 });
     }
 
     const user = await prisma.user.findUnique({
@@ -17,7 +19,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (!user) {
-      return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
+      return NextResponse.json({ error: 'UsuÃ¡rio nÃ£o encontrado' }, { status: 404 });
     }
 
     const { searchParams } = new URL(request.url);
@@ -28,8 +30,8 @@ export async function GET(request: NextRequest) {
     let whereClause: any = { userId: user.id };
 
     if (startDate && endDate) {
-      // Criar datas usando o mesmo padrão da criação (T12:00:00) para evitar problemas de timezone
-      // startDate: início do dia (00:00 local)
+      // Criar datas usando o mesmo padrÃ£o da criaÃ§Ã£o (T12:00:00) para evitar problemas de timezone
+      // startDate: inÃ­cio do dia (00:00 local)
       // endDate: fim do dia (23:59:59 local)
       const startOfDay = new Date(startDate + 'T00:00:00');
       const endOfDay = new Date(endDate + 'T23:59:59.999');
@@ -69,7 +71,7 @@ export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions);
     
     if (!session?.user?.email) {
-      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+      return NextResponse.json({ error: 'NÃ£o autorizado' }, { status: 401 });
     }
 
     const user = await prisma.user.findUnique({
@@ -77,7 +79,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (!user) {
-      return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
+      return NextResponse.json({ error: 'UsuÃ¡rio nÃ£o encontrado' }, { status: 404 });
     }
 
     const body = await request.json();

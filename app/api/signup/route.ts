@@ -1,3 +1,5 @@
+﻿export const runtime = 'edge'
+
 
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
@@ -11,19 +13,19 @@ export async function POST(req: NextRequest) {
 
     if (!email || !password) {
       return NextResponse.json(
-        { error: "Email e senha são obrigatórios" },
+        { error: "Email e senha sÃ£o obrigatÃ³rios" },
         { status: 400 }
       );
     }
 
-    // Verificar se usuário já existe
+    // Verificar se usuÃ¡rio jÃ¡ existe
     const existingUser = await prisma.user.findUnique({
       where: { email }
     });
 
     if (existingUser) {
       return NextResponse.json(
-        { error: "Usuário já existe com este email" },
+        { error: "UsuÃ¡rio jÃ¡ existe com este email" },
         { status: 400 }
       );
     }
@@ -31,7 +33,7 @@ export async function POST(req: NextRequest) {
     // Hash da senha
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    // Criar usuário
+    // Criar usuÃ¡rio
     const user = await prisma.user.create({
       data: {
         email,
@@ -45,7 +47,7 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json({
-      message: "Usuário criado com sucesso",
+      message: "UsuÃ¡rio criado com sucesso",
       user: {
         id: user.id,
         email: user.email,
