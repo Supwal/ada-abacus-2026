@@ -14,8 +14,4 @@ NEXTAUTH_URL = "https://ada-abacus-2026.pages.dev"
 #   ASAAS_API_KEY       = chave da API do Asaas
 #   ASAAS_SANDBOX       = false (em produção)
 
-[[d1_databases]]
-# Opcional: se quiser usar D1 (SQLite do Cloudflare) no futuro
-# binding = "DB"
-# database_name = "ada-abacus-db"
-# database_id = "seu-database-id"
+# D1 não utilizado — banco é Neon PostgreSQL via Prisma Accelerate
