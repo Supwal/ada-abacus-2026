@@ -3,6 +3,9 @@ compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
 pages_build_output_dir = ".vercel/output/static"
 
+[build]
+command = "npm install --legacy-peer-deps && npx prisma generate && npx @cloudflare/next-on-pages"
+
 [vars]
 NODE_ENV = "production"
 NEXTAUTH_URL = "https://ada-abacus-2026.pages.dev"
