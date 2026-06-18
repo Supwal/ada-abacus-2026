@@ -3,12 +3,33 @@ export const runtime = 'edge'
 import { NextRequest, NextResponse } from 'next/server'
 import { encode, decode } from 'next-auth/jwt'
 import { verifyPassword } from '@/lib/password'
-import { makePrisma } from '@/lib/db'
+import { neon } from '@neondatabase/serverless'
 import { getOptionalRequestContext } from '@cloudflare/next-on-pages'
 
+const NEON_URL = 'postgresql://neondb_owner:npg_7VF3ZIiwaLWv@ep-cold-king-ac3p3xlf.sa-east-1.aws.neon.tech/neondb?sslmode=require'
+
+function getDb() {
+  try {
+    const ctx = getOptionalRequestContext()
+    const cfGlobal = (globalThis as any).__cloudflareRequestContext
+    const url =
+      (ctx?.env as any)?.DATABASE_URL ??
+      cfGlobal?.env?.DATABASE_URL ??
+      process.env.DATABASE_URL ??
+      NEON_URL
+    return neon(url)
+  } catch {
+    return neon(NEON_URL)
+  }
+}
+
 function getSecret(): string {
-  const ctx = getOptionalRequestContext()
-  return ((ctx?.env as any)?.NEXTAUTH_SECRET ?? process.env.NEXTAUTH_SECRET ?? '') as string
+  try {
+    const ctx = getOptionalRequestContext()
+    return ((ctx?.env as any)?.NEXTAUTH_SECRET ?? process.env.NEXTAUTH_SECRET ?? '3fE76BVTaFYVdBDBviIZfZnYvm0AcQTp') as string
+  } catch {
+    return '3fE76BVTaFYVdBDBviIZfZnYvm0AcQTp'
+  }
 }
 
 const COOKIE = 'next-auth.session-token'
@@ -29,144 +50,158 @@ function setSessionCookie(res: NextResponse, token: string) {
 }
 
 export async function GET(req: NextRequest, { params }: { params: { nextauth: string[] } }) {
-  const prisma = makePrisma()
-  const [action] = params.nextauth
+  try {
+    const [action] = params.nextauth
 
-  if (action === 'providers') {
-    return NextResponse.json({
-      credentials: {
-        id: 'credentials',
-        name: 'Credentials',
-        type: 'credentials',
-        signinUrl: '/api/auth/signin/credentials',
-        callbackUrl: '/api/auth/callback/credentials',
-      },
-    })
+    if (action === 'providers') {
+      return NextResponse.json({
+        credentials: {
+          id: 'credentials',
+          name: 'Credentials',
+          type: 'credentials',
+          signinUrl: '/api/auth/signin/credentials',
+          callbackUrl: '/api/auth/callback/credentials',
+        },
+      })
+    }
+
+    if (action === 'csrf') {
+      return NextResponse.json({ csrfToken: crypto.randomUUID() })
+    }
+
+    if (action === 'session') {
+      const tokenStr = getSessionCookie(req)
+      if (!tokenStr) return NextResponse.json({})
+
+      const payload = await decode({ token: tokenStr, secret: getSecret() })
+      if (!payload) return NextResponse.json({})
+
+      const exp = (payload as any).exp
+      return NextResponse.json({
+        user: {
+          id: payload.sub,
+          email: payload.email,
+          name: payload.name,
+          firstName: (payload as any).firstName,
+          lastName: (payload as any).lastName,
+          phone: (payload as any).phone,
+          profession: (payload as any).profession,
+        },
+        expires: exp
+          ? new Date(exp * 1000).toISOString()
+          : new Date(Date.now() + MAX_AGE * 1000).toISOString(),
+      })
+    }
+
+    return NextResponse.json({})
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error)
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
-
-  if (action === 'csrf') {
-    return NextResponse.json({ csrfToken: crypto.randomUUID() })
-  }
-
-  if (action === 'session') {
-    const tokenStr = getSessionCookie(req)
-    if (!tokenStr) return NextResponse.json({})
-
-    const payload = await decode({
-      token: tokenStr,
-      secret: getSecret(),
-    })
-    if (!payload) return NextResponse.json({})
-
-    const exp = (payload as any).exp
-    return NextResponse.json({
-      user: {
-        id: payload.sub,
-        email: payload.email,
-        name: payload.name,
-        firstName: (payload as any).firstName,
-        lastName: (payload as any).lastName,
-        phone: (payload as any).phone,
-        profession: (payload as any).profession,
-      },
-      expires: exp ? new Date(exp * 1000).toISOString() : new Date(Date.now() + MAX_AGE * 1000).toISOString(),
-    })
-  }
-
-  return NextResponse.json({})
 }
 
 export async function POST(req: NextRequest, { params }: { params: { nextauth: string[] } }) {
-  const prisma = makePrisma()
-  const segments = params.nextauth
+  try {
+    const segments = params.nextauth
 
-  if (segments[0] === 'callback' && segments[1] === 'credentials') {
-    let email = ''
-    let password = ''
-    let callbackUrl = '/'
-    let isJson = false
+    if (segments[0] === 'callback' && segments[1] === 'credentials') {
+      let email = ''
+      let password = ''
+      let callbackUrl = '/'
+      let isJson = false
 
-    const ct = req.headers.get('content-type') || ''
-    if (ct.includes('application/json')) {
-      const body = await req.json()
-      email = body.email || ''
-      password = body.password || ''
-      callbackUrl = body.callbackUrl || '/'
-      isJson = body.json === true
-    } else {
-      const body = await req.formData()
-      email = (body.get('email') as string) || ''
-      password = (body.get('password') as string) || ''
-      callbackUrl = (body.get('callbackUrl') as string) || '/'
-      isJson = body.get('json') === 'true'
-    }
+      const ct = req.headers.get('content-type') || ''
+      if (ct.includes('application/json')) {
+        const body = await req.json()
+        email = body.email || ''
+        password = body.password || ''
+        callbackUrl = body.callbackUrl || '/'
+        isJson = body.json === true
+      } else {
+        const body = await req.formData()
+        email = (body.get('email') as string) || ''
+        password = (body.get('password') as string) || ''
+        callbackUrl = (body.get('callbackUrl') as string) || '/'
+        isJson = body.get('json') === 'true'
+      }
 
-    const fail = () =>
-      isJson
-        ? NextResponse.json({ ok: false, error: 'CredentialsSignin', status: 401, url: null })
-        : NextResponse.redirect(new URL('/auth/login?error=CredentialsSignin', req.url))
+      const fail = () =>
+        isJson
+          ? NextResponse.json({ ok: false, error: 'CredentialsSignin', status: 401, url: null })
+          : NextResponse.redirect(new URL('/auth/login?error=CredentialsSignin', req.url))
 
-    if (!email || !password) return fail()
+      if (!email || !password) return fail()
 
-    const user = await prisma.user.findUnique({ where: { email } })
-    if (!user || !user.hashedPassword) return fail()
+      const sql = getDb()
+      const rows = await sql`
+        SELECT id, email, name, hashed_password, first_name, last_name, phone, profession
+        FROM users WHERE email = ${email} LIMIT 1
+      `
 
-    const valid = await verifyPassword(password, user.hashedPassword)
-    if (!valid) return fail()
+      if (rows.length === 0) return fail()
+      const user = rows[0]
+      if (!user.hashed_password) return fail()
 
-    const jwtToken = await encode({
-      secret: getSecret(),
-      maxAge: MAX_AGE,
-      token: {
-        sub: user.id,
-        email: user.email,
-        name: user.name,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        phone: user.phone,
-        profession: user.profession,
-      },
-    })
+      const valid = await verifyPassword(password, user.hashed_password)
+      if (!valid) return fail()
 
-    if (isJson) {
-      const res = NextResponse.json({ ok: true, status: 200, url: callbackUrl, error: null })
+      const jwtToken = await encode({
+        secret: getSecret(),
+        maxAge: MAX_AGE,
+        token: {
+          sub: user.id,
+          email: user.email,
+          name: user.name,
+          firstName: user.first_name,
+          lastName: user.last_name,
+          phone: user.phone,
+          profession: user.profession,
+        },
+      })
+
+      if (isJson) {
+        const res = NextResponse.json({ ok: true, status: 200, url: callbackUrl, error: null })
+        setSessionCookie(res, jwtToken)
+        return res
+      }
+
+      const res = NextResponse.redirect(new URL(callbackUrl, req.url))
       setSessionCookie(res, jwtToken)
       return res
     }
 
-    const res = NextResponse.redirect(new URL(callbackUrl, req.url))
-    setSessionCookie(res, jwtToken)
-    return res
-  }
+    if (segments[0] === 'signout') {
+      let callbackUrl = '/auth/login'
+      let isJson = false
+      try {
+        const ct = req.headers.get('content-type') || ''
+        if (ct.includes('application/json')) {
+          const body = await req.json()
+          callbackUrl = body.callbackUrl || callbackUrl
+          isJson = body.json === true
+        } else {
+          const body = await req.formData()
+          callbackUrl = (body.get('callbackUrl') as string) || callbackUrl
+          isJson = body.get('json') === 'true'
+        }
+      } catch {}
 
-  if (segments[0] === 'signout') {
-    let callbackUrl = '/auth/login'
-    let isJson = false
-    try {
-      const ct = req.headers.get('content-type') || ''
-      if (ct.includes('application/json')) {
-        const body = await req.json()
-        callbackUrl = body.callbackUrl || callbackUrl
-        isJson = body.json === true
-      } else {
-        const body = await req.formData()
-        callbackUrl = (body.get('callbackUrl') as string) || callbackUrl
-        isJson = body.get('json') === 'true'
+      if (isJson) {
+        const res = NextResponse.json({ url: callbackUrl })
+        res.cookies.delete(COOKIE)
+        res.cookies.delete(SECURE_COOKIE)
+        return res
       }
-    } catch {}
 
-    if (isJson) {
-      const res = NextResponse.json({ url: callbackUrl })
+      const res = NextResponse.redirect(new URL(callbackUrl, req.url))
       res.cookies.delete(COOKIE)
       res.cookies.delete(SECURE_COOKIE)
       return res
     }
 
-    const res = NextResponse.redirect(new URL(callbackUrl, req.url))
-    res.cookies.delete(COOKIE)
-    res.cookies.delete(SECURE_COOKIE)
-    return res
+    return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error)
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
-
-  return NextResponse.json({ error: 'Not found' }, { status: 404 })
 }
