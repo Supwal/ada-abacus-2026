@@ -2,7 +2,7 @@ export const runtime = 'edge'
 
 import { NextRequest, NextResponse } from 'next/server'
 import { encode, decode } from 'next-auth/jwt'
-import bcrypt from 'bcryptjs'
+import { verifyPassword } from '@/lib/password'
 import { prisma } from '@/lib/db'
 
 const COOKIE = 'next-auth.session-token'
@@ -103,7 +103,7 @@ export async function POST(req: NextRequest, { params }: { params: { nextauth: s
     const user = await prisma.user.findUnique({ where: { email } })
     if (!user || !user.hashedPassword) return fail()
 
-    const valid = await bcrypt.compare(password, user.hashedPassword)
+    const valid = await verifyPassword(password, user.hashedPassword)
     if (!valid) return fail()
 
     const jwtToken = await encode({
