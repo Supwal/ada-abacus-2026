@@ -2,9 +2,10 @@
 
 
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { makePrisma } from '@/lib/db';
 
 export async function GET(request: NextRequest) {
+  const prisma = makePrisma()
   try {
     const categories = await prisma.expenseCategory.findMany({
       orderBy: { name: 'asc' },
@@ -18,6 +19,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const prisma = makePrisma()
   try {
     const body = await request.json();
     const { name } = body;

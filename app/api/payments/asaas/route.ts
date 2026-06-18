@@ -2,7 +2,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getToken } from 'next-auth/jwt';
-import { prisma } from '@/lib/db';
+import { makePrisma } from '@/lib/db';
 import {
   createOrGetAsaasCustomer,
   createAsaasPayment,
@@ -20,6 +20,7 @@ export const dynamic = 'force-dynamic';
  * POST - Criar pagamento de assinatura via Asaas
  */
 export async function POST(request: NextRequest) {
+  const prisma = makePrisma()
   try {
     const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
     if (!token?.sub || !token?.email) {
@@ -131,6 +132,7 @@ export async function POST(request: NextRequest) {
  * GET - Obter status do pagamento
  */
 export async function GET(request: NextRequest) {
+  const prisma = makePrisma()
   try {
     const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
     if (!token?.sub) {

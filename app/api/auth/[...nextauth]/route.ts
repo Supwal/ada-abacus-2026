@@ -3,7 +3,13 @@ export const runtime = 'edge'
 import { NextRequest, NextResponse } from 'next/server'
 import { encode, decode } from 'next-auth/jwt'
 import { verifyPassword } from '@/lib/password'
-import { prisma } from '@/lib/db'
+import { makePrisma } from '@/lib/db'
+import { getOptionalRequestContext } from '@cloudflare/next-on-pages'
+
+function getSecret(): string {
+  const ctx = getOptionalRequestContext()
+  return ((ctx?.env as any)?.NEXTAUTH_SECRET ?? process.env.NEXTAUTH_SECRET ?? '') as string
+}
 
 const COOKIE = 'next-auth.session-token'
 const SECURE_COOKIE = '__Secure-next-auth.session-token'
@@ -23,6 +29,7 @@ function setSessionCookie(res: NextResponse, token: string) {
 }
 
 export async function GET(req: NextRequest, { params }: { params: { nextauth: string[] } }) {
+  const prisma = makePrisma()
   const [action] = params.nextauth
 
   if (action === 'providers') {
@@ -47,7 +54,7 @@ export async function GET(req: NextRequest, { params }: { params: { nextauth: st
 
     const payload = await decode({
       token: tokenStr,
-      secret: process.env.NEXTAUTH_SECRET!,
+      secret: getSecret(),
     })
     if (!payload) return NextResponse.json({})
 
@@ -70,6 +77,7 @@ export async function GET(req: NextRequest, { params }: { params: { nextauth: st
 }
 
 export async function POST(req: NextRequest, { params }: { params: { nextauth: string[] } }) {
+  const prisma = makePrisma()
   const segments = params.nextauth
 
   if (segments[0] === 'callback' && segments[1] === 'credentials') {
@@ -107,7 +115,7 @@ export async function POST(req: NextRequest, { params }: { params: { nextauth: s
     if (!valid) return fail()
 
     const jwtToken = await encode({
-      secret: process.env.NEXTAUTH_SECRET!,
+      secret: getSecret(),
       maxAge: MAX_AGE,
       token: {
         sub: user.id,

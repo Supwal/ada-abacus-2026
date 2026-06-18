@@ -3,9 +3,10 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getToken } from 'next-auth/jwt';
-import { prisma } from '@/lib/db';
+import { makePrisma } from '@/lib/db';
 
 export async function POST(request: NextRequest) {
+  const prisma = makePrisma()
   try {
     const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
     

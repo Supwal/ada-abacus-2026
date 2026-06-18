@@ -1,12 +1,13 @@
 export const runtime = 'edge'
 
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+import { makePrisma } from '@/lib/db'
 import { hashPassword } from '@/lib/password'
 
 export const dynamic = 'force-dynamic'
 
 export async function POST(req: NextRequest) {
+  const prisma = makePrisma()
   try {
     const { email, password, firstName, lastName, phone, profession } = await req.json()
 
