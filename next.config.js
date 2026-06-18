@@ -7,9 +7,14 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   images: { unoptimized: true },
-  // Para Cloudflare Pages com @cloudflare/next-on-pages:
-  // execute: npx @cloudflare/next-on-pages
-  // depois: npx wrangler pages deploy .vercel/output/static
+  // Injeta variáveis de ambiente em tempo de build para o Edge Runtime do Cloudflare
+  env: {
+    DATABASE_URL: process.env.DATABASE_URL,
+    NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
+    NEXTAUTH_URL: process.env.NEXTAUTH_URL,
+    ASAAS_API_KEY: process.env.ASAAS_API_KEY,
+    ASAAS_SANDBOX: process.env.ASAAS_SANDBOX,
+  },
 };
 
 module.exports = nextConfig;
