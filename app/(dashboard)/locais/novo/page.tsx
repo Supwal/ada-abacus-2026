@@ -87,8 +87,15 @@ export default function NovoLocalPage() {
         },
         body: JSON.stringify({
           name: formData.nomeLocal,
-          address: `${formData.endereco}, ${formData.cidade} - ${formData.estado}`,
-          description: `Telefone: ${formData.telefone || 'N/A'}\nPessoa de Contato: ${formData.pessoaContato || 'N/A'}\nDias: ${formData.diasFuncionamento || 'N/A'}\nHorário: ${formData.horarioInicio || 'N/A'} - ${formData.horarioFim || 'N/A'}\nObservações: ${formData.observacoes || 'N/A'}`,
+          address: formData.endereco,
+          city: formData.cidade,
+          state: formData.estado,
+          phone: formData.telefone,
+          contactPerson: formData.pessoaContato,
+          workingDays: formData.diasFuncionamento,
+          openTime: formData.horarioInicio,
+          closeTime: formData.horarioFim,
+          notes: formData.observacoes,
         }),
       });
 

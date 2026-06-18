@@ -70,13 +70,21 @@ model User {
 }
 
 model Location {
-  id          String   @id
-  name        String
-  address     String?
-  description String?
-  userId      String   @map("user_id")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id             String   @id
+  name           String
+  address        String?
+  city           String?
+  state          String?
+  phone          String?
+  contactPerson  String?  @map("contact_person")
+  workingDays    String?  @map("working_days")
+  openTime       String?  @map("open_time")
+  closeTime      String?  @map("close_time")
+  notes          String?
+  description    String?
+  userId         String   @map("user_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
 
   user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   appointments   Appointment[]
