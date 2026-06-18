@@ -1,25 +1,24 @@
-﻿export const runtime = 'edge'
-
+export const runtime = 'edge'
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getToken } from 'next-auth/jwt';
+import { getAuthToken } from '@/lib/auth-helper';
 import { makePrisma } from '@/lib/db';
 
 export async function GET(request: NextRequest) {
   const prisma = makePrisma()
   try {
-    const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
-    
+    const token = await getAuthToken(request);
+
     if (!token?.email) {
-      return NextResponse.json({ error: 'NÃ£o autorizado' }, { status: 401 });
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
 
     const user = await prisma.user.findUnique({
-      where: { email: (token!.email as string) },
+      where: { email: token.email as string },
     });
 
     if (!user) {
-      return NextResponse.json({ error: 'UsuÃ¡rio nÃ£o encontrado' }, { status: 404 });
+      return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
     }
 
     const locations = await prisma.location.findMany({
@@ -37,22 +36,26 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const prisma = makePrisma()
   try {
-    const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
-    
+    const token = await getAuthToken(request);
+
     if (!token?.email) {
-      return NextResponse.json({ error: 'NÃ£o autorizado' }, { status: 401 });
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
 
     const user = await prisma.user.findUnique({
-      where: { email: (token!.email as string) },
+      where: { email: token.email as string },
     });
 
     if (!user) {
-      return NextResponse.json({ error: 'UsuÃ¡rio nÃ£o encontrado' }, { status: 404 });
+      return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
     }
 
     const body = await request.json();
     const { id, name, address, description } = body;
+
+    if (!name) {
+      return NextResponse.json({ error: 'Nome do local é obrigatório' }, { status: 400 });
+    }
 
     const location = await prisma.location.create({
       data: {
@@ -67,6 +70,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(location, { status: 201 });
   } catch (error) {
     console.error('Erro ao criar local:', error);
-    return NextResponse.json({ error: 'Erro ao criar local' }, { status: 500 });
+    const msg = error instanceof Error ? error.message : 'Erro desconhecido';
+    return NextResponse.json({ error: `Erro ao criar local: ${msg}` }, { status: 500 });
   }
 }

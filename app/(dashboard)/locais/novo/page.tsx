@@ -93,17 +93,19 @@ export default function NovoLocalPage() {
       });
 
       if (!response.ok) {
-        throw new Error('Erro ao salvar local');
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Erro ao salvar local');
       }
 
       const novoLocal = await response.json();
       console.log('Local salvo:', novoLocal);
-      
+
       // Redirecionar para a página de confirmação
       router.push('/locais/confirmacao');
     } catch (error) {
       console.error('Erro ao salvar local:', error);
-      toast.error('Erro ao salvar local. Por favor, tente novamente.');
+      const msg = error instanceof Error ? error.message : 'Erro ao salvar local';
+      toast.error(msg);
     }
   };
 

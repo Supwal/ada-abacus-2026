@@ -5,7 +5,7 @@ import { useEffect, useRef, useCallback } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 
-const IDLE_TIMEOUT = 5 * 60 * 1000; // 5 minutos em milissegundos
+const IDLE_TIMEOUT = 2 * 60 * 1000; // 2 minutos em milissegundos
 const LAST_ACTIVITY_KEY = 'lastActivityTime';
 const SESSION_ACTIVE_KEY = 'sessionActive';
 
@@ -105,9 +105,20 @@ export function useIdleLogout() {
     // Configurar timer inicial
     resetTimer();
 
-    // Listener para quando a página fica visível novamente
+    // Quando app vai para background: salva hora de saída e para de contar atividade
+    // Quando volta: verifica se passou mais de 2 minutos desde a saída
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
+      if (document.visibilityState === 'hidden') {
+        // Salva o momento exato que o usuário saiu
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(LAST_ACTIVITY_KEY, Date.now().toString());
+        }
+        // Cancela o timer — o tempo passa mesmo sem eventos
+        if (timeoutIdRef.current) {
+          clearTimeout(timeoutIdRef.current);
+          timeoutIdRef.current = null;
+        }
+      } else if (document.visibilityState === 'visible') {
         checkLastActivity();
       }
     };

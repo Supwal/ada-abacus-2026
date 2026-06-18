@@ -52,9 +52,14 @@ export default function LoginPage() {
 
       if (result?.error) {
         toast.error("Email ou senha incorretos");
+        // Limpa os campos mesmo em caso de erro para não deixar senha visível
+        setPassword("");
         setIsLoading(false);
       } else {
         toast.success("Login realizado com sucesso!");
+        // Limpa os campos antes de redirecionar — nunca deixa credenciais na memória do form
+        setEmail("");
+        setPassword("");
         // Aguardar um pouco antes de redirecionar para garantir que a sessão seja atualizada
         setTimeout(() => {
           // Usar window.location para garantir redirecionamento no mobile
@@ -91,7 +96,7 @@ export default function LoginPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
                   Email
@@ -104,6 +109,9 @@ export default function LoginPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   required
                   disabled={isLoading}
+                  autoComplete="off"
+                  data-lpignore="true"
+                  data-1p-ignore
                 />
               </div>
 
@@ -121,6 +129,9 @@ export default function LoginPage() {
                     required
                     disabled={isLoading}
                     className="pr-10"
+                    autoComplete="new-password"
+                    data-lpignore="true"
+                    data-1p-ignore
                   />
                   <button
                     type="button"
@@ -137,7 +148,14 @@ export default function LoginPage() {
               </Button>
             </form>
 
-            <div className="mt-6 text-center">
+            <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-md">
+              <p className="text-xs text-amber-700 text-center">
+                🔒 Por segurança, a sessão expira automaticamente após <strong>2 minutos</strong> de inatividade.
+                Suas credenciais nunca são salvas localmente.
+              </p>
+            </div>
+
+            <div className="mt-4 text-center">
               <p className="text-sm text-gray-600">
                 Não tem uma conta?{" "}
                 <Link href="/auth/signup" className="font-medium text-blue-600 hover:text-blue-500">
