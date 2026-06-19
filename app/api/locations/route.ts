@@ -95,7 +95,8 @@ export async function POST(request: NextRequest) {
     const rows = await sql`
       INSERT INTO locations (
         id, name, address, city, state, phone,
-        contact_person, working_days, open_time, close_time, notes, user_id
+        contact_person, working_days, open_time, close_time, notes, user_id,
+        created_at, updated_at
       ) VALUES (
         ${id},
         ${name},
@@ -108,7 +109,8 @@ export async function POST(request: NextRequest) {
         ${openTime || null},
         ${closeTime || null},
         ${notes || null},
-        ${userId}
+        ${userId},
+        NOW(), NOW()
       )
       RETURNING id, name, address, city, state, phone,
         contact_person as "contactPerson", working_days as "workingDays",
