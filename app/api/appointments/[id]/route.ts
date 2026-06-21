@@ -1,157 +1,132 @@
 export const runtime = 'edge'
 
+import { NextRequest, NextResponse } from 'next/server'
+import { decode } from 'next-auth/jwt'
+import { neon } from '@neondatabase/serverless'
+import { getOptionalRequestContext } from '@cloudflare/next-on-pages'
 
-import { NextRequest, NextResponse } from 'next/server';
-import { getToken } from 'next-auth/jwt';
-import { makePrisma } from '@/lib/db';
+const NEON_URL = 'postgresql://neondb_owner:npg_7VF3ZIiwaLWv@ep-cold-king-ac3p3xlf.sa-east-1.aws.neon.tech/neondb?sslmode=require'
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  const prisma = makePrisma()
+function getDb() {
   try {
-    const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
-    
-    if (!token?.email) {
-      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
-    }
+    const ctx = getOptionalRequestContext()
+    const cfGlobal = (globalThis as any).__cloudflareRequestContext
+    const url = (ctx?.env as any)?.DATABASE_URL ?? cfGlobal?.env?.DATABASE_URL ?? process.env.DATABASE_URL ?? NEON_URL
+    return neon(url)
+  } catch { return neon(NEON_URL) }
+}
 
-    const user = await prisma.user.findUnique({
-      where: { email: (token!.email as string) },
-    });
+function getSecret(): string {
+  try {
+    const ctx = getOptionalRequestContext()
+    return (ctx?.env as any)?.NEXTAUTH_SECRET ?? process.env.NEXTAUTH_SECRET ?? '3fE76BVTaFYVdBDBviIZfZnYvm0AcQTp'
+  } catch { return process.env.NEXTAUTH_SECRET ?? '3fE76BVTaFYVdBDBviIZfZnYvm0AcQTp' }
+}
 
-    if (!user) {
-      return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
-    }
+const COOKIE = 'next-auth.session-token'
+const SECURE_COOKIE = '__Secure-next-auth.session-token'
 
-    const appointment = await prisma.appointment.findFirst({
-      where: {
-        id: params.id,
-        userId: user.id,
-      },
-      include: {
-        client: true,
-        service: true,
-        location: true,
-      },
-    });
+async function getSession(req: NextRequest) {
+  const token = req.cookies.get(SECURE_COOKIE)?.value || req.cookies.get(COOKIE)?.value
+  if (!token) return null
+  try { return await decode({ token, secret: getSecret() }) } catch { return null }
+}
 
-    if (!appointment) {
-      return NextResponse.json({ error: 'Agendamento não encontrado' }, { status: 404 });
-    }
+export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    const session = await getSession(request)
+    if (!session?.email) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
 
-    return NextResponse.json(appointment);
+    const sql = getDb()
+    const users = await sql`SELECT id FROM users WHERE email = ${session.email as string} LIMIT 1`
+    if (!users.length) return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 })
+
+    const rows = await sql`
+      SELECT a.id, a.date, a.start_time as "startTime", a.end_time as "endTime",
+             a.status, a.notes, a.value, a.paid, a.created_at as "createdAt",
+             a.client_id as "clientId", a.service_id as "serviceId", a.location_id as "locationId",
+             c.name as "clientName", c.phone as "clientPhone",
+             s.name as "serviceName", s.duration as "serviceDuration",
+             l.name as "locationName"
+      FROM appointments a
+      LEFT JOIN clients c ON c.id = a.client_id
+      LEFT JOIN services s ON s.id = a.service_id
+      LEFT JOIN locations l ON l.id = a.location_id
+      WHERE a.id = ${params.id} AND a.user_id = ${users[0].id}
+      LIMIT 1
+    `
+    if (!rows.length) return NextResponse.json({ error: 'Agendamento não encontrado' }, { status: 404 })
+    return NextResponse.json(rows[0])
   } catch (error) {
-    console.error('Erro ao buscar agendamento:', error);
-    return NextResponse.json({ error: 'Erro ao buscar agendamento' }, { status: 500 });
+    const msg = error instanceof Error ? error.message : String(error)
+    return NextResponse.json({ error: `Erro ao buscar agendamento: ${msg}` }, { status: 500 })
   }
 }
 
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  const prisma = makePrisma()
+export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
-    
-    if (!token?.email) {
-      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
-    }
+    const session = await getSession(request)
+    if (!session?.email) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
 
-    const user = await prisma.user.findUnique({
-      where: { email: (token!.email as string) },
-    });
+    const sql = getDb()
+    const users = await sql`SELECT id FROM users WHERE email = ${session.email as string} LIMIT 1`
+    if (!users.length) return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 })
 
-    if (!user) {
-      return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
-    }
+    const userId = users[0].id
+    const body = await request.json()
+    const { date, startTime, endTime, status, notes, value, paid, clientId, serviceId, locationId } = body
 
-    const body = await request.json();
-    const { 
-      date, 
-      startTime, 
-      endTime, 
-      status, 
-      notes, 
-      value, 
-      paid,
-      clientId,
-      serviceId,
-      locationId
-    } = body;
+    await sql`
+      UPDATE appointments SET
+        date = ${date ? (date + 'T12:00:00') : null}::timestamp,
+        start_time = ${startTime || null},
+        end_time = ${endTime || null},
+        status = ${status || 'scheduled'},
+        notes = ${notes || null},
+        value = ${value ? parseFloat(value) : null},
+        paid = ${paid || false},
+        client_id = ${clientId || null},
+        service_id = ${serviceId || null},
+        location_id = ${locationId || null},
+        updated_at = NOW()
+      WHERE id = ${params.id} AND user_id = ${userId}
+    `
 
-    const updateData: any = {};
-    if (date !== undefined) updateData.date = new Date(date);
-    if (startTime !== undefined) updateData.startTime = startTime;
-    if (endTime !== undefined) updateData.endTime = endTime;
-    if (status !== undefined) updateData.status = status;
-    if (notes !== undefined) updateData.notes = notes || null;
-    if (value !== undefined) updateData.value = value ? parseFloat(value) : null;
-    if (paid !== undefined) updateData.paid = paid;
-    if (clientId !== undefined) updateData.clientId = clientId;
-    if (serviceId !== undefined) updateData.serviceId = serviceId;
-    if (locationId !== undefined) updateData.locationId = locationId;
-
-    const appointment = await prisma.appointment.updateMany({
-      where: {
-        id: params.id,
-        userId: user.id,
-      },
-      data: updateData,
-    });
-
-    if (appointment.count === 0) {
-      return NextResponse.json({ error: 'Agendamento não encontrado' }, { status: 404 });
-    }
-
-    const updatedAppointment = await prisma.appointment.findUnique({
-      where: { id: params.id },
-      include: {
-        client: true,
-        service: true,
-        location: true,
-      },
-    });
-
-    return NextResponse.json(updatedAppointment);
+    const rows = await sql`
+      SELECT a.id, a.date, a.start_time as "startTime", a.end_time as "endTime",
+             a.status, a.notes, a.value, a.paid, a.created_at as "createdAt",
+             a.client_id as "clientId", a.service_id as "serviceId", a.location_id as "locationId",
+             c.name as "clientName", c.phone as "clientPhone",
+             s.name as "serviceName", s.duration as "serviceDuration",
+             l.name as "locationName"
+      FROM appointments a
+      LEFT JOIN clients c ON c.id = a.client_id
+      LEFT JOIN services s ON s.id = a.service_id
+      LEFT JOIN locations l ON l.id = a.location_id
+      WHERE a.id = ${params.id}
+      LIMIT 1
+    `
+    if (!rows.length) return NextResponse.json({ error: 'Agendamento não encontrado' }, { status: 404 })
+    return NextResponse.json(rows[0])
   } catch (error) {
-    console.error('Erro ao atualizar agendamento:', error);
-    return NextResponse.json({ error: 'Erro ao atualizar agendamento' }, { status: 500 });
+    const msg = error instanceof Error ? error.message : String(error)
+    return NextResponse.json({ error: `Erro ao atualizar agendamento: ${msg}` }, { status: 500 })
   }
 }
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  const prisma = makePrisma()
+export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
-    
-    if (!token?.email) {
-      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
-    }
+    const session = await getSession(request)
+    if (!session?.email) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
 
-    const user = await prisma.user.findUnique({
-      where: { email: (token!.email as string) },
-    });
+    const sql = getDb()
+    const users = await sql`SELECT id FROM users WHERE email = ${session.email as string} LIMIT 1`
+    if (!users.length) return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 })
 
-    if (!user) {
-      return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
-    }
-
-    await prisma.appointment.deleteMany({
-      where: {
-        id: params.id,
-        userId: user.id,
-      },
-    });
-
-    return NextResponse.json({ message: 'Agendamento excluído com sucesso' });
+    await sql`DELETE FROM appointments WHERE id = ${params.id} AND user_id = ${users[0].id}`
+    return NextResponse.json({ message: 'Agendamento excluído com sucesso' })
   } catch (error) {
-    console.error('Erro ao excluir agendamento:', error);
-    return NextResponse.json({ error: 'Erro ao excluir agendamento' }, { status: 500 });
+    const msg = error instanceof Error ? error.message : String(error)
+    return NextResponse.json({ error: `Erro ao excluir agendamento: ${msg}` }, { status: 500 })
   }
 }

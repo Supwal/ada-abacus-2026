@@ -166,7 +166,7 @@ export default function EditarLocalPage() {
                   <Label htmlFor="estado" className="text-sm font-medium text-gray-700">Estado *</Label>
                   <Select value={formData.estado} onValueChange={(v) => handleInputChange('estado', v)}>
                     <SelectTrigger className="shadow-sm"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="max-h-60 overflow-y-auto">
                       {estadosBrasil.map((e) => <SelectItem key={e} value={e}>{e}</SelectItem>)}
                     </SelectContent>
                   </Select>

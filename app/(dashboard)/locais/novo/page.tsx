@@ -164,7 +164,7 @@ export default function NovoLocalPage() {
                   <SelectTrigger className="shadow-sm">
                     <SelectValue placeholder="Todos os estados" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-60 overflow-y-auto">
                     <SelectItem value="todos">Todos os estados</SelectItem>
                     {estadosBrasil.map((estado) => (
                       <SelectItem key={estado} value={estado}>{estado}</SelectItem>
@@ -264,7 +264,7 @@ export default function NovoLocalPage() {
                     <SelectTrigger className="shadow-sm">
                       <SelectValue placeholder="Selecione" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="max-h-60 overflow-y-auto">
                       {estadosBrasil.map((estado) => (
                         <SelectItem key={estado} value={estado}>{estado}</SelectItem>
                       ))}
