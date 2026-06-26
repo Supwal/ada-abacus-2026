@@ -78,16 +78,16 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
     await sql`
       UPDATE appointments SET
-        date = ${date ? (date + 'T12:00:00') : null}::timestamp,
-        start_time = ${startTime || null},
-        end_time = ${endTime || null},
-        status = ${status || 'scheduled'},
-        notes = ${notes || null},
-        value = ${value ? parseFloat(value) : null},
-        paid = ${paid || false},
-        client_id = ${clientId || null},
-        service_id = ${serviceId || null},
-        location_id = ${locationId || null},
+        date = COALESCE(${date ? (date + 'T12:00:00') : null}::timestamp, date),
+        start_time = COALESCE(${startTime ?? null}, start_time),
+        end_time = COALESCE(${endTime ?? null}, end_time),
+        status = COALESCE(${status ?? null}, status),
+        notes = COALESCE(${notes ?? null}, notes),
+        value = COALESCE(${value != null ? parseFloat(value) : null}, value),
+        paid = COALESCE(${paid != null ? paid : null}, paid),
+        client_id = COALESCE(${clientId ?? null}, client_id),
+        service_id = COALESCE(${serviceId ?? null}, service_id),
+        location_id = COALESCE(${locationId ?? null}, location_id),
         updated_at = NOW()
       WHERE id = ${params.id} AND user_id = ${userId}
     `
