@@ -411,14 +411,16 @@ export default function NovoAgendamentoPage() {
         }),
       });
 
-      if (clientResponse.ok) {
-        const client = await clientResponse.json();
-        clientId = client.id;
+      if (!clientResponse.ok) {
+        const errData = await clientResponse.json().catch(() => ({}));
+        throw new Error(errData.error || 'Erro ao registrar cliente');
       }
+      const client = await clientResponse.json();
+      clientId = client.id;
 
       // Criar agendamento
-      const valorNumerico = formData.valor ? 
-        parseFloat(formData.valor.replace('R$', '').replace('.', '').replace(',', '.').trim()) : 
+      const valorNumerico = formData.valor ?
+        parseFloat(formData.valor.replace('R$', '').replace('.', '').replace(',', '.').trim()) :
         0;
 
       const response = await fetch('/api/appointments', {
@@ -447,7 +449,8 @@ export default function NovoAgendamentoPage() {
       router.push('/agenda/confirmacao');
     } catch (error) {
       console.error('Erro ao salvar agendamento:', error);
-      toast.error('Erro ao salvar agendamento. Por favor, tente novamente.');
+      const msg = error instanceof Error ? error.message : 'Erro ao salvar agendamento';
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
