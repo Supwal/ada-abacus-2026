@@ -186,15 +186,12 @@ export default function NovoAgendamentoPage() {
     } catch {}
   };
 
-  // Gerar próximo código sequencial por dia (nunca volta atrás mesmo se apagar)
+  // PREVIEW: calcula o próximo código SEM salvar no localStorage
+  // (salvar só acontece após salvar o agendamento com sucesso)
   const gerarCodigoSequencial = async (dataAgendamento: string) => {
     if (!dataAgendamento) return 'Cli001';
-
     try {
-      // 1. Verificar o maior número já usado (localStorage — memória permanente do dia)
       const contadorLocal = lerContadorLocal(dataAgendamento);
-
-      // 2. Verificar agendamentos reais na API para checar se há números maiores
       let maiorDaAPI = 0;
       try {
         const response = await fetch(`/api/appointments?startDate=${dataAgendamento}&endDate=${dataAgendamento}`);
@@ -210,15 +207,10 @@ export default function NovoAgendamentoPage() {
           if (nums.length > 0) maiorDaAPI = Math.max(...nums);
         }
       } catch {}
-
-      // 3. Usar o maior entre localStorage e API — nunca vai para trás
       const proximoNumero = Math.max(contadorLocal, maiorDaAPI) + 1;
-
-      // 4. Salvar no localStorage para que exclusões não resetem o contador
-      salvarContadorLocal(dataAgendamento, proximoNumero);
-
+      // NÃO salva aqui — salva apenas ao confirmar o agendamento
       return `Cli${proximoNumero.toString().padStart(3, '0')}`;
-    } catch (error) {
+    } catch {
       return 'Cli001';
     }
   };
@@ -251,11 +243,12 @@ export default function NovoAgendamentoPage() {
         nomeCliente: codigoGerado,
         data: dataAtual,
         horario: obterHorarioAtual(),
-        // Aplicar preferências do dia se existirem
         periodo: preferencias.periodo || prev.periodo,
         local: preferencias.local || prev.local,
         valor: preferencias.valor || prev.valor,
       }));
+      // Marca que a data foi inicializada — agora o useEffect de data pode agir
+      setDataInicializada(true);
     };
 
     inicializar();
@@ -319,20 +312,16 @@ export default function NovoAgendamentoPage() {
     verificar();
   }, [formData.data, formData.horario, formData.periodo]);
 
-  // Regenerar código quando a data mudar
+  // Regenerar código quando o usuário mudar a DATA manualmente (não na inicialização)
+  const [dataInicializada, setDataInicializada] = useState(false);
   useEffect(() => {
-    const regenerarCodigo = async () => {
-      if (formData.data) {
-        const novoCodigo = await gerarCodigoSequencial(formData.data);
-        setFormData(prev => ({
-          ...prev,
-          codigo: novoCodigo,
-          nomeCliente: novoCodigo
-        }));
-      }
+    if (!dataInicializada || !formData.data) return;
+    const regenerar = async () => {
+      const novoCodigo = await gerarCodigoSequencial(formData.data);
+      setFormData(prev => ({ ...prev, codigo: novoCodigo, nomeCliente: novoCodigo }));
     };
-    regenerarCodigo();
-  }, [formData.data]);
+    regenerar();
+  }, [formData.data, dataInicializada]);
 
   // Processar comando de voz e preencher formulário
   const handleVoiceCommand = (parsedCommand: any) => {
@@ -479,6 +468,10 @@ export default function NovoAgendamentoPage() {
         const errData = await response.json().catch(() => ({}));
         throw new Error(errData.error || 'Erro ao salvar agendamento');
       }
+
+      // Salva o contador SOMENTE após sucesso — evita pular números
+      const matchCodigo = formData.codigo.match(/Cli(\d+)/i);
+      if (matchCodigo) salvarContadorLocal(formData.data, parseInt(matchCodigo[1]));
 
       toast.success('✅ Agendamento criado com sucesso!');
       router.push('/agenda/confirmacao');
