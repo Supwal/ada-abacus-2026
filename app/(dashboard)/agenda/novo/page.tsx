@@ -358,11 +358,15 @@ export default function NovoAgendamentoPage() {
         }));
       }
 
-      // Atualizar local
+      // Atualizar local — busca pelo nome no array de locais carregados
       if (local) {
+        const localEncontrado = locations.find(
+          (l: any) => l.name.toLowerCase().includes(local.toLowerCase()) ||
+                      local.toLowerCase().includes(l.name.toLowerCase())
+        );
         setFormData(prev => ({
           ...prev,
-          local: local
+          local: localEncontrado ? localEncontrado.id : prev.local
         }));
       }
 

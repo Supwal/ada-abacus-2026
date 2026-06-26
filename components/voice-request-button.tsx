@@ -64,32 +64,46 @@ export function VoiceRequestButton({ onRequestParsed, disabled = false }: VoiceR
   };
 
   const parseVoiceCommand = (text: string) => {
-    // Exemplos:
-    // "AGENDAR HJ AS 14:00 COM JOAO LOCAL PADRAO VALOR 200"
-    // "AGENDAR HOJE AS 13:00 COM PEDRO HOTEL MESSALINA 200 PIX"
+    const t = text.toLowerCase().trim();
 
-    const textLower = text.toLowerCase().trim();
+    // Hora: "às 14", "as 14:30", "14h", "14 horas"
+    const horaMatch = t.match(/(?:às?|as)\s+(\d{1,2})(?::(\d{2}))?|(\d{1,2})h(?:(\d{2})?)?/i);
+    let hora: string | null = null;
+    let minuto = '00';
+    if (horaMatch) {
+      hora = horaMatch[1] || horaMatch[3] || null;
+      minuto = horaMatch[2] || horaMatch[4] || '00';
+    }
 
-    // Remover palavras-chave iniciais
-    let cleaned = textLower.replace(/^(ada\s+|opa\s+)?/i, '');
+    // Cliente: "com [nome]"
+    const clienteMatch = t.match(/com\s+([a-záàâãéèêíïóôõöúüçñ\s]+?)(?=\s+(?:local|hotel|clínica|clinica|valor|r\$|\d+|pix|dinheiro|cartão|cartao|debito|débito|crédito|credito)|$)/i);
+    const cliente = clienteMatch ? clienteMatch[1].trim() : null;
 
-    // Extrair palavras-chave
-    const dataMatch = cleaned.match(/(\d{1,2})(?:[\/\-.](\d{1,2}))?/);
-    const horaMatch = cleaned.match(/(\d{1,2}):?(\d{2})?/);
-    const clienteMatch = cleaned.match(/com\s+([a-záéíóú\s]+?)(?:\s+(?:local|hotel|valor|pix|whatsapp|telegram)|$)/i);
-    const localMatch = cleaned.match(/(?:local|em|na)\s+([a-záéíóú\s]+?)(?:\s+valor|\s*$)/i);
-    const valorMatch = cleaned.match(/(?:valor|preço|r\$)\s*(\d+(?:[.,]\d{2})?)/i);
-    const pagamentoMatch = cleaned.match(/(?:pix|whatsapp|telegram|dinheiro|cartao)/i);
+    // Local: "local [nome]", "clínica [nome]", "hotel [nome]", "em [nome]"
+    const localMatch = t.match(/(?:local|clínica|clinica|hotel|em)\s+([a-záàâãéèêíïóôõöúüçñ\s]+?)(?=\s+(?:valor|r\$|\d{2,}|pix|dinheiro|cartão|cartao)|$)/i);
+    const local = localMatch ? localMatch[1].trim() : null;
+
+    // Valor: "valor 200", "200 reais", "R$ 200", "duzentos reais"
+    const valorMatch = t.match(/(?:valor|r\$|reais)?\s*(\d+(?:[.,]\d{2})?)(?:\s*reais)?/i);
+    // Pegar ÚLTIMO número (mais provável ser o valor)
+    const todosNumeros = [...t.matchAll(/\b(\d{2,}(?:[.,]\d{2})?)\b/g)];
+    const valorNum = todosNumeros.length > 0 ? todosNumeros[todosNumeros.length - 1][1] : null;
+    const valor = valorNum ? valorNum.replace(',', '.') : null;
+
+    // Pagamento
+    const pagamentoMatch = t.match(/\b(pix|dinheiro|cartão|cartao|débito|debito|crédito|credito|whatsapp|telegram)\b/i);
+    const pagamento = pagamentoMatch ? pagamentoMatch[1].toLowerCase()
+      .replace('cartão', 'cartao').replace('débito', 'debito').replace('crédito', 'credito') : null;
 
     const parsed: any = {
       comando: 'agendar',
-      data: dataMatch ? dataMatch[1] : null,
-      hora: horaMatch ? horaMatch[1] : null,
-      minuto: horaMatch ? (horaMatch[2] || '00') : '00',
-      cliente: clienteMatch ? clienteMatch[1].trim() : null,
-      local: localMatch ? localMatch[1].trim() : null,
-      valor: valorMatch ? valorMatch[1].replace(',', '.') : null,
-      pagamento: pagamentoMatch ? pagamentoMatch[0].toLowerCase() : null,
+      hora: hora ? parseInt(hora) : null,
+      minuto: minuto,
+      cliente,
+      local,
+      valor,
+      pagamento,
+      textoOriginal: text,
     };
 
     return parsed;
