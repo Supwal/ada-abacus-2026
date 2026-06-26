@@ -437,7 +437,10 @@ export default function ConsultaAgendaPage() {
 
     try {
       const body: any = { status: novoStatus };
-      if (novoValor !== '') body.value = novoValor;
+      if (novoValor !== '') {
+        const valorLimpo = novoValor.replace(',', '.');
+        if (!isNaN(parseFloat(valorLimpo))) body.value = valorLimpo;
+      }
 
       const response = await fetch(`/api/appointments/${agendamentoParaEditar.id}`, {
         method: 'PUT',
@@ -1144,29 +1147,33 @@ export default function ConsultaAgendaPage() {
                     </Select>
                   </div>
 
-                  {/* Campo de Valor */}
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium text-gray-700">
-                      💰 Valor do Atendimento (R$)
-                    </Label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-semibold text-sm">R$</span>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        placeholder="0,00"
-                        value={novoValor}
-                        onChange={(e) => setNovoValor(e.target.value)}
-                        className="pl-10 shadow-sm text-lg font-semibold"
-                      />
-                    </div>
-                    <p className="text-xs text-gray-400">Deixe em branco para manter o valor atual</p>
-                  </div>
                 </div>
               )}
             </DialogDescription>
           </DialogHeader>
+
+          {/* Campo de Valor - fora do DialogDescription para funcionar no mobile */}
+          <div className="px-1 pb-2 space-y-2">
+            <Label className="text-sm font-medium text-gray-700">
+              💰 Valor do Atendimento (R$)
+            </Label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-semibold text-sm select-none">R$</span>
+              <Input
+                type="text"
+                inputMode="decimal"
+                placeholder="0.00"
+                value={novoValor}
+                onChange={(e) => {
+                  const v = e.target.value.replace(',', '.');
+                  if (/^\d*\.?\d{0,2}$/.test(v) || v === '') setNovoValor(v);
+                }}
+                className="pl-10 shadow-sm text-lg font-semibold border-2 border-green-300 focus:border-green-500"
+              />
+            </div>
+            <p className="text-xs text-gray-400">Deixe em branco para manter o valor atual</p>
+          </div>
+
           <DialogFooter className="gap-2 sm:gap-2">
             <Button
               variant="outline"
