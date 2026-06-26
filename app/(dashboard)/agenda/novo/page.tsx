@@ -433,13 +433,14 @@ export default function NovoAgendamentoPage() {
           value: valorNumerico,
           paid: false,
           clientId,
-          serviceId: 'default',
-          locationId: formData.local || 'default',
+          serviceId: null,
+          locationId: formData.local || null,
         }),
       });
 
       if (!response.ok) {
-        throw new Error('Erro ao salvar agendamento');
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Erro ao salvar agendamento');
       }
 
       toast.success('✅ Agendamento criado com sucesso!');
