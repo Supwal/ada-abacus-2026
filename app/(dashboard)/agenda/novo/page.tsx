@@ -172,7 +172,8 @@ export default function NovoAgendamentoPage() {
       
       const numerosExistentes = agendamentosDoDia
         .map((ag: any) => {
-          const match = ag.client?.name?.match(/Cli(\d+)/);
+          const nome = ag.clientName || ag.client?.name || '';
+          const match = nome.match(/Cli(\d+)/);
           return match ? parseInt(match[1], 10) : 0;
         })
         .filter((num: number) => num > 0);
@@ -257,7 +258,10 @@ export default function NovoAgendamentoPage() {
         ) {
           return {
             conflito: true,
-            agendamento,
+            agendamento: {
+              ...agendamento,
+              client: { name: agendamento.clientName || agendamento.client?.name || '' },
+            },
             horarioFinal: agendamento.endTime
           };
         }
