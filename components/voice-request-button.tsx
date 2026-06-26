@@ -124,8 +124,15 @@ export function VoiceRequestButton({ onRequestParsed, disabled = false }: VoiceR
     resetTranscript();
   };
 
-  const handleStartListening = () => {
+  const handleStartListening = async () => {
     resetTranscript();
+    // Pede permissão do microfone explicitamente antes de iniciar
+    try {
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch {
+      toast.error('Permissão do microfone negada. Libere nas configurações do navegador.');
+      return;
+    }
     startListening();
   };
 
@@ -178,8 +185,21 @@ export function VoiceRequestButton({ onRequestParsed, disabled = false }: VoiceR
 
           <div className="space-y-4 py-4">
             {error && (
-              <div className="bg-red-50 border-2 border-red-200 rounded-lg p-3 text-red-700 text-sm font-medium">
-                ⚠️ {error}
+              <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4 text-red-700 text-sm">
+                {error.includes('not-allowed') || error.includes('denied') ? (
+                  <div className="space-y-2">
+                    <p className="font-bold">🎙️ Microfone bloqueado!</p>
+                    <p>Para liberar no <strong>Android Chrome</strong>:</p>
+                    <ol className="list-decimal pl-4 space-y-1">
+                      <li>Toque no ícone 🔒 na barra de endereço</li>
+                      <li>Toque em <strong>Permissões do site</strong></li>
+                      <li>Toque em <strong>Microfone</strong> → <strong>Permitir</strong></li>
+                      <li>Recarregue a página e tente novamente</li>
+                    </ol>
+                  </div>
+                ) : (
+                  <p>⚠️ {error}</p>
+                )}
               </div>
             )}
 
