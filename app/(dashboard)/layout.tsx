@@ -3,6 +3,7 @@ import { Sidebar } from "@/components/sidebar";
 import { AuthGuard } from "@/components/auth-guard";
 import { UserHeader } from "@/components/user-header";
 import { IdleLogoutProvider } from "@/components/idle-logout-provider";
+import { MicPermissionGuide } from "@/components/mic-permission-guide";
 
 export default function DashboardLayout({
   children,
@@ -12,6 +13,7 @@ export default function DashboardLayout({
   return (
     <AuthGuard>
       <IdleLogoutProvider>
+        <MicPermissionGuide />
         <div className="flex h-screen bg-gray-50">
           <Sidebar />
           <main className="flex-1 lg:ml-64 overflow-auto">
