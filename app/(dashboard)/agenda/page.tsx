@@ -334,15 +334,17 @@ export default function ConsultaAgendaPage() {
         let statusExibicao = a.status || 'pendente';
         if (statusExibicao === 'scheduled') statusExibicao = 'pendente';
         
+        const nomeCliente = a.clientName || a.client?.name || 'Cliente não informado';
         return {
           id: a.id,
-          codigo: a.id.substring(0, 8).toUpperCase(),
+          codigo: nomeCliente,
+          nomeCliente: nomeCliente,
           data: dataFormatada,
           horario: a.startTime,
           horarioFim: a.endTime,
-          cliente: a.client?.name || 'Cliente não informado',
-          servico: a.service?.name || 'Serviço não informado',
-          local: a.location?.name || 'Local não informado',
+          cliente: nomeCliente,
+          servico: a.serviceName || a.service?.name || 'Serviço não informado',
+          local: a.locationName || a.location?.name || 'Local não informado',
           valor: valorFormatado,
           status: statusExibicao,
           observacoes: a.notes || ''

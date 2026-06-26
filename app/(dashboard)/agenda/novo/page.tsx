@@ -160,34 +160,65 @@ export default function NovoAgendamentoPage() {
     toast.success('Tipo de pagamento cadastrado com sucesso!');
   };
 
-  // Gerar código sequencial por data
+  // Chave do contador local por data
+  const getContadorKey = (data: string) => `ada_contador_${data}`;
+
+  // Ler contador salvo no localStorage para a data
+  const lerContadorLocal = (data: string): number => {
+    try {
+      return parseInt(localStorage.getItem(getContadorKey(data)) || '0');
+    } catch { return 0; }
+  };
+
+  // Salvar contador no localStorage
+  const salvarContadorLocal = (data: string, numero: number) => {
+    try {
+      localStorage.setItem(getContadorKey(data), String(numero));
+      // Limpar contadores de outros dias (manter apenas últimos 7 dias)
+      const keys = Object.keys(localStorage);
+      keys.forEach(key => {
+        if (key.startsWith('ada_contador_') && key !== getContadorKey(data)) {
+          const dataKey = key.replace('ada_contador_', '');
+          const diff = new Date(data).getTime() - new Date(dataKey).getTime();
+          if (diff > 7 * 24 * 60 * 60 * 1000) localStorage.removeItem(key);
+        }
+      });
+    } catch {}
+  };
+
+  // Gerar próximo código sequencial por dia (nunca volta atrás mesmo se apagar)
   const gerarCodigoSequencial = async (dataAgendamento: string) => {
     if (!dataAgendamento) return 'Cli001';
-    
+
     try {
-      const response = await fetch(`/api/appointments?startDate=${dataAgendamento}&endDate=${dataAgendamento}`);
-      if (!response.ok) return 'Cli001';
-      
-      const agendamentosDoDia = await response.json();
-      
-      const numerosExistentes = agendamentosDoDia
-        .map((ag: any) => {
-          const nome = ag.clientName || ag.client?.name || '';
-          const match = nome.match(/Cli(\d+)/);
-          return match ? parseInt(match[1], 10) : 0;
-        })
-        .filter((num: number) => num > 0);
-      
-      let proximoNumero = 1;
-      if (numerosExistentes.length > 0) {
-        numerosExistentes.sort((a: number, b: number) => a - b);
-        const maiorNumero = Math.max(...numerosExistentes);
-        proximoNumero = maiorNumero + 1;
-      }
-      
+      // 1. Verificar o maior número já usado (localStorage — memória permanente do dia)
+      const contadorLocal = lerContadorLocal(dataAgendamento);
+
+      // 2. Verificar agendamentos reais na API para checar se há números maiores
+      let maiorDaAPI = 0;
+      try {
+        const response = await fetch(`/api/appointments?startDate=${dataAgendamento}&endDate=${dataAgendamento}`);
+        if (response.ok) {
+          const agendamentos = await response.json();
+          const nums = agendamentos
+            .map((ag: any) => {
+              const nome = ag.clientName || ag.client?.name || '';
+              const match = nome.match(/Cli(\d+)/i);
+              return match ? parseInt(match[1], 10) : 0;
+            })
+            .filter((n: number) => n > 0);
+          if (nums.length > 0) maiorDaAPI = Math.max(...nums);
+        }
+      } catch {}
+
+      // 3. Usar o maior entre localStorage e API — nunca vai para trás
+      const proximoNumero = Math.max(contadorLocal, maiorDaAPI) + 1;
+
+      // 4. Salvar no localStorage para que exclusões não resetem o contador
+      salvarContadorLocal(dataAgendamento, proximoNumero);
+
       return `Cli${proximoNumero.toString().padStart(3, '0')}`;
     } catch (error) {
-      console.error('Erro ao gerar código:', error);
       return 'Cli001';
     }
   };
