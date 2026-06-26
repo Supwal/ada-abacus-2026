@@ -63,6 +63,10 @@ export default function ConsultaAgendaPage() {
   const [totalDia, setTotalDia] = useState('R$ 0,00');
   const [quantidadeAgendamentos, setQuantidadeAgendamentos] = useState(0);
   const [mostrarFiltrosAvancados, setMostrarFiltrosAvancados] = useState(false);
+
+  // Estados para edição inline de valor
+  const [editandoValorId, setEditandoValorId] = useState<string | null>(null);
+  const [valorEditando, setValorEditando] = useState('');
   
   // Estados para controle dos calendários
   const [calendarDataInicialOpen, setCalendarDataInicialOpen] = useState(false);
@@ -469,6 +473,37 @@ export default function ConsultaAgendaPage() {
     } catch (error) {
       console.error('Erro ao atualizar:', error);
       toast.error("Erro ao atualizar agendamento");
+    }
+  };
+
+  const abrirEdicaoValor = (agendamento: any) => {
+    const valorBruto = agendamento.valor || '';
+    const valorNumerico = valorBruto.replace('R$', '').replace(/\./g, '').replace(',', '.').trim();
+    setValorEditando(isNaN(parseFloat(valorNumerico)) ? '' : String(parseFloat(valorNumerico)));
+    setEditandoValorId(agendamento.id);
+  };
+
+  const salvarValorInline = async (agendamento: any) => {
+    const valorLimpo = valorEditando.replace(',', '.');
+    if (valorLimpo === '' || isNaN(parseFloat(valorLimpo))) {
+      setEditandoValorId(null);
+      return;
+    }
+    try {
+      const response = await fetch(`/api/appointments/${agendamento.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ value: valorLimpo }),
+      });
+      if (!response.ok) {
+        toast.error('Erro ao salvar valor');
+        return;
+      }
+      setEditandoValorId(null);
+      buscarAgendamentos(formData);
+      toast.success(`Valor atualizado para R$ ${parseFloat(valorLimpo).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, { duration: 2000 });
+    } catch {
+      toast.error('Erro ao salvar valor');
     }
   };
 
@@ -1016,12 +1051,57 @@ export default function ConsultaAgendaPage() {
                     </div>
                   </div>
 
-                  {/* Valor em Destaque */}
-                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg px-4 py-2 border-2 border-green-300 flex items-center justify-between">
-                    <span className="text-xs font-medium text-green-700">💰 Valor:</span>
-                    <p className="text-lg md:text-xl font-bold text-green-700">
-                      {agendamento.valor || 'R$ 0,00'}
-                    </p>
+                  {/* Valor em Destaque - editável inline */}
+                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg px-3 py-2 border-2 border-green-300 flex items-center gap-2">
+                    <span className="text-xs font-medium text-green-700 shrink-0">💰 Valor:</span>
+                    {editandoValorId === agendamento.id ? (
+                      <>
+                        <span className="text-green-700 font-semibold text-sm shrink-0">R$</span>
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          autoFocus
+                          value={valorEditando}
+                          onChange={(e) => {
+                            const v = e.target.value.replace(',', '.');
+                            if (/^\d*\.?\d{0,2}$/.test(v) || v === '') setValorEditando(v);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') salvarValorInline(agendamento);
+                            if (e.key === 'Escape') setEditandoValorId(null);
+                          }}
+                          className="flex-1 min-w-0 bg-white border-2 border-green-400 rounded-lg px-2 py-1 text-base font-bold text-green-800 focus:outline-none focus:border-green-600"
+                          placeholder="0.00"
+                        />
+                        <button
+                          onClick={() => salvarValorInline(agendamento)}
+                          className="shrink-0 bg-green-500 hover:bg-green-600 text-white rounded-full w-8 h-8 flex items-center justify-center shadow-md"
+                          title="Salvar valor"
+                        >
+                          ▶
+                        </button>
+                        <button
+                          onClick={() => setEditandoValorId(null)}
+                          className="shrink-0 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-full w-8 h-8 flex items-center justify-center text-xs"
+                          title="Cancelar"
+                        >
+                          ✕
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={() => abrirEdicaoValor(agendamento)}
+                        className="flex-1 flex items-center justify-between group"
+                        title="Toque para editar o valor"
+                      >
+                        <span className="text-lg md:text-xl font-bold text-green-700">
+                          {agendamento.valor || 'R$ 0,00'}
+                        </span>
+                        <span className="bg-green-500 hover:bg-green-600 text-white rounded-full w-7 h-7 flex items-center justify-center text-xs shadow ml-2 opacity-80 group-hover:opacity-100">
+                          ✏️
+                        </span>
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
