@@ -101,16 +101,17 @@ export default function ConsultaGanhosPage() {
         const statusExibicao = a.status === 'scheduled' ? 'pendente' : a.status;
         const statusIcon = statusExibicao === 'confirmado' ? '✅' : statusExibicao === 'pendente' ? '⏳' : '📋';
         
+        const nomeCliente = a.clientName || a.client?.name || 'Cliente não informado';
         agendamentosEncontrados.push({
           id: a.id,
-          codigo: a.id.substring(0, 8).toUpperCase(),
+          codigo: nomeCliente,
           dataOriginal: dataString,
           dataFormatada: formatarDataExibicao(dataString),
           horario: a.startTime,
           horarioFormatado: formatarHorario(a.startTime),
-          cliente: a.client?.name || 'Cliente não informado',
-          servico: a.service?.name || 'Serviço não informado',
-          local: a.location?.name || 'Local não informado',
+          cliente: nomeCliente,
+          servico: a.serviceName || a.service?.name || 'Serviço não informado',
+          local: a.locationName || a.location?.name || 'Local não informado',
           valor: valorNumerico.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
           valorNumerico: valorNumerico,
           status: statusExibicao,
