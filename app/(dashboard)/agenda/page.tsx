@@ -765,7 +765,7 @@ export default function ConsultaAgendaPage() {
                       >
                         <CalendarIcon className="mr-2 h-4 w-4" />
                         {formData.dataInicial ? (
-                          format(new Date(formData.dataInicial), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })
+                          format(criarDataLocal(formData.dataInicial), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })
                         ) : (
                           <span>Selecione a data inicial</span>
                         )}
@@ -774,11 +774,13 @@ export default function ConsultaAgendaPage() {
                     <PopoverContent className="w-auto p-0" align="start">
                       <Calendar
                         mode="single"
-                        selected={formData.dataInicial ? new Date(formData.dataInicial) : undefined}
+                        selected={formData.dataInicial ? criarDataLocal(formData.dataInicial) : undefined}
                         onSelect={(date) => {
                           if (date) {
-                            const dataFormatada = format(date, "yyyy-MM-dd");
-                            handleInputChange('dataInicial', dataFormatada);
+                            const ano = date.getFullYear();
+                            const mes = String(date.getMonth() + 1).padStart(2, '0');
+                            const dia = String(date.getDate()).padStart(2, '0');
+                            handleInputChange('dataInicial', `${ano}-${mes}-${dia}`);
                           }
                           setCalendarDataInicialOpen(false);
                         }}
@@ -806,7 +808,7 @@ export default function ConsultaAgendaPage() {
                       >
                         <CalendarIcon className="mr-2 h-4 w-4" />
                         {formData.dataFinal ? (
-                          format(new Date(formData.dataFinal), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })
+                          format(criarDataLocal(formData.dataFinal), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })
                         ) : (
                           <span>Selecione a data final</span>
                         )}
@@ -815,16 +817,18 @@ export default function ConsultaAgendaPage() {
                     <PopoverContent className="w-auto p-0" align="start">
                       <Calendar
                         mode="single"
-                        selected={formData.dataFinal ? new Date(formData.dataFinal) : undefined}
+                        selected={formData.dataFinal ? criarDataLocal(formData.dataFinal) : undefined}
                         onSelect={(date) => {
                           if (date) {
-                            const dataFormatada = format(date, "yyyy-MM-dd");
-                            handleInputChange('dataFinal', dataFormatada);
+                            const ano = date.getFullYear();
+                            const mes = String(date.getMonth() + 1).padStart(2, '0');
+                            const dia = String(date.getDate()).padStart(2, '0');
+                            handleInputChange('dataFinal', `${ano}-${mes}-${dia}`);
                           }
                           setCalendarDataFinalOpen(false);
                         }}
                         disabled={(date) => {
-                          const dataInicial = formData.dataInicial ? new Date(formData.dataInicial) : null;
+                          const dataInicial = formData.dataInicial ? criarDataLocal(formData.dataInicial) : null;
                           return date < new Date("1900-01-01") ||
                                  (dataInicial ? date < dataInicial : false);
                         }}
