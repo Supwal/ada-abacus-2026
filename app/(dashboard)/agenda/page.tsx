@@ -76,6 +76,7 @@ export default function ConsultaAgendaPage() {
   const [dialogEditarStatusAberto, setDialogEditarStatusAberto] = useState(false);
   const [agendamentoParaEditar, setAgendamentoParaEditar] = useState<any>(null);
   const [novoStatus, setNovoStatus] = useState<string>('');
+  const [novoValor, setNovoValor] = useState<string>('');
   
   // Estados para status da agenda (ABERTA/FECHADA)
   const [agendaAberta, setAgendaAberta] = useState(true);
@@ -424,44 +425,47 @@ export default function ConsultaAgendaPage() {
   const abrirDialogEditarStatus = (agendamento: any) => {
     setAgendamentoParaEditar(agendamento);
     setNovoStatus(agendamento.status || 'confirmado');
+    // Extrair valor numérico do formato "R$ 200,00"
+    const valorBruto = agendamento.valor || '';
+    const valorNumerico = valorBruto.replace('R$', '').replace(/\./g, '').replace(',', '.').trim();
+    setNovoValor(isNaN(parseFloat(valorNumerico)) ? '' : valorNumerico);
     setDialogEditarStatusAberto(true);
   };
-  
+
   const confirmarEdicaoStatus = async () => {
     if (!agendamentoParaEditar) return;
 
     try {
+      const body: any = { status: novoStatus };
+      if (novoValor !== '') body.value = novoValor;
+
       const response = await fetch(`/api/appointments/${agendamentoParaEditar.id}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ status: novoStatus }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
       });
 
       if (!response.ok) {
-        toast.error("Erro ao atualizar status");
+        toast.error("Erro ao atualizar agendamento");
         return;
       }
-      
-      // Disparar evento customizado para notificar outras páginas
+
       window.dispatchEvent(new Event('agendamentoSalvo'));
-      
-      // Fechar o diálogo
+
       setDialogEditarStatusAberto(false);
       setAgendamentoParaEditar(null);
       setNovoStatus('');
-      
-      // Recarregar agendamentos
+      setNovoValor('');
+
       buscarAgendamentos(formData);
-      
-      toast.success("Status alterado com sucesso!", {
-        description: `O status foi atualizado para: ${novoStatus}`,
+
+      toast.success("Agendamento atualizado!", {
+        description: `Status: ${novoStatus}${novoValor ? ` • Valor: R$ ${parseFloat(novoValor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : ''}`,
         duration: 2000,
       });
     } catch (error) {
-      console.error('Erro ao atualizar status:', error);
-      toast.error("Erro ao atualizar status");
+      console.error('Erro ao atualizar:', error);
+      toast.error("Erro ao atualizar agendamento");
     }
   };
 
@@ -1076,7 +1080,7 @@ export default function ConsultaAgendaPage() {
       </AlertDialog>
 
       {/* Diálogo de Edição de Status */}
-      <Dialog open={dialogEditarStatusAberto} onOpenChange={setDialogEditarStatusAberto}>
+      <Dialog open={dialogEditarStatusAberto} onOpenChange={(open) => { if (!open) { setNovoValor(''); setNovoStatus(''); setAgendamentoParaEditar(null); } setDialogEditarStatusAberto(open); }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <div className="flex items-center gap-3 mb-2">
@@ -1110,8 +1114,8 @@ export default function ConsultaAgendaPage() {
                     <Label htmlFor="novoStatus" className="text-sm font-medium text-gray-700">
                       🏷️ Novo Status
                     </Label>
-                    <Select 
-                      value={novoStatus} 
+                    <Select
+                      value={novoStatus}
                       onValueChange={(value) => setNovoStatus(value)}
                     >
                       <SelectTrigger className="shadow-sm">
@@ -1138,6 +1142,26 @@ export default function ConsultaAgendaPage() {
                         </SelectItem>
                       </SelectContent>
                     </Select>
+                  </div>
+
+                  {/* Campo de Valor */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-gray-700">
+                      💰 Valor do Atendimento (R$)
+                    </Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-semibold text-sm">R$</span>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="0,00"
+                        value={novoValor}
+                        onChange={(e) => setNovoValor(e.target.value)}
+                        className="pl-10 shadow-sm text-lg font-semibold"
+                      />
+                    </div>
+                    <p className="text-xs text-gray-400">Deixe em branco para manter o valor atual</p>
                   </div>
                 </div>
               )}
