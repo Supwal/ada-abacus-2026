@@ -168,9 +168,6 @@ export default function EditarLocalPage() {
                   }}
                   required
                 />
-                {formData.estado && (
-                  <p className="text-xs text-green-600">✓ {formData.cidade} — {formData.estado}</p>
-                )}
               </div>
 
               <div className="space-y-2">

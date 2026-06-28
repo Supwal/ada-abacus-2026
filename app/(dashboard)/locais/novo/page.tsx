@@ -255,9 +255,6 @@ export default function NovoLocalPage() {
                   }}
                   required
                 />
-                {formData.estado && (
-                  <p className="text-xs text-green-600">✓ {formData.cidade} — {formData.estado}</p>
-                )}
               </div>
 
               {/* Telefone */}

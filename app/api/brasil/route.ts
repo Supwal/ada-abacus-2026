@@ -10,20 +10,20 @@ export async function GET(request: Request) {
   try {
     const sql = neon(process.env.NEON_URL!)
 
-    // Autocomplete: busca por nome de cidade com UF
+    // Autocomplete: busca sem acento via translate() — não precisa de extensão
     if (q && q.trim().length >= 2) {
-      const termo = q.trim().toLowerCase()
+      const termo = q.trim()
       const sugestoes = await sql`
-        SELECT c.nome, e.sigla,
-               c.nome || ' - ' || e.sigla AS label
+        SELECT c.nome, e.sigla
         FROM brasil_cidades c
         JOIN brasil_estados e ON e.id = c.estado_id
-        WHERE lower(c.nome) LIKE lower(${termo + '%'})
-           OR lower(c.nome) LIKE lower(${'%' + termo + '%'})
-        ORDER BY
-          CASE WHEN lower(c.nome) LIKE lower(${termo + '%'}) THEN 0 ELSE 1 END,
-          c.capital DESC,
-          c.nome
+        WHERE translate(lower(c.nome),
+                'áàãâäéèêëíìîïóòõôöúùûüçñ',
+                'aaaaaaeeeeiiiiooooouuuucn')
+              LIKE translate(lower(${termo + '%'}),
+                'áàãâäéèêëíìîïóòõôöúùûüçñ',
+                'aaaaaaeeeeiiiiooooouuuucn')
+        ORDER BY c.capital DESC, c.nome
         LIMIT 10
       `
       return Response.json({ sugestoes })
