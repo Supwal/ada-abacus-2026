@@ -1,8 +1,8 @@
 
-// Service Worker for ADA APP PWA - v3.0
-const CACHE_NAME = 'ada-app-v3.0';
-const RUNTIME_CACHE = 'ada-runtime-v3.0';
-const IMAGE_CACHE = 'ada-images-v3.0';
+// Service Worker for ADA APP PWA - v4.0
+const CACHE_NAME = 'ada-app-v4.0';
+const RUNTIME_CACHE = 'ada-runtime-v4.0';
+const IMAGE_CACHE = 'ada-images-v4.0';
 
 // Assets to cache on install
 const STATIC_ASSETS = [
@@ -23,7 +23,7 @@ const STATIC_ASSETS = [
 
 // Install event - cache static assets
 self.addEventListener('install', (event) => {
-  console.log('[SW] Installing Service Worker v3.0...');
+  console.log('[SW] Installing Service Worker v4.0...');
   
   event.waitUntil(
     caches.open(CACHE_NAME)
@@ -44,7 +44,7 @@ self.addEventListener('install', (event) => {
 
 // Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activating Service Worker v3.0...');
+  console.log('[SW] Activating Service Worker v4.0...');
   
   const currentCaches = [CACHE_NAME, RUNTIME_CACHE, IMAGE_CACHE];
   

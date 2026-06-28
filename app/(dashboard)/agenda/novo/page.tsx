@@ -402,9 +402,9 @@ export default function NovoAgendamentoPage() {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleSubmit = async (e?: React.FormEvent | React.MouseEvent) => {
+    e?.preventDefault?.();
+    e?.stopPropagation?.();
 
     // Bloqueia se o nome do cliente for o código auto-gerado (Cli001) sem preencher
     if (!formData.nomeCliente || !formData.data || !formData.horario || !formData.periodo) {
@@ -524,7 +524,7 @@ export default function NovoAgendamentoPage() {
 
         <Card className="shadow-lg">
           <CardContent className="p-6">
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="space-y-6">
               {/* Data e Celular */}
               <div className="grid grid-cols-2 gap-4">
                 {/* Data */}
@@ -752,21 +752,22 @@ export default function NovoAgendamentoPage() {
                 </div>
               </div>
 
+              {/* Botão de Voz — completamente separado do botão de confirmar */}
+              <div>
+                <VoiceRequestButton
+                  onRequestParsed={handleVoiceCommand}
+                  disabled={loading}
+                />
+              </div>
+
               <Button
-                type="submit"
+                type="button"
+                onClick={handleSubmit}
                 disabled={loading}
                 className="w-full bg-pink-500 hover:bg-pink-600 text-white py-3 font-medium rounded-lg"
               >
                 {loading ? 'Salvando...' : 'Confirmar Agendamento'}
               </Button>
-            </form>
-
-            {/* Botão de Voz FORA do form — evita submit acidental no mobile */}
-            <div className="mt-4">
-              <VoiceRequestButton
-                onRequestParsed={handleVoiceCommand}
-                disabled={loading}
-              />
             </div>
           </CardContent>
         </Card>
