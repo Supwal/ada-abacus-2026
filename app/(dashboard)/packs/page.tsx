@@ -31,9 +31,11 @@ import {
   Images,
   Video,
   DollarSign,
+  Upload,
+  X as XIcon,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -52,6 +54,8 @@ export default function PacksPage() {
     price: '',
     coverImage: '',
   });
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Carregar packs ao montar
   useEffect(() => {
@@ -159,6 +163,35 @@ export default function PacksPage() {
       console.error('Erro ao salvar pack:', error);
       toast.error('Erro ao salvar pack');
     }
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Imagem muito grande. Máximo 5 MB.');
+      return;
+    }
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Selecione apenas arquivos de imagem (JPG, PNG, WEBP).');
+      return;
+    }
+
+    setUploadingImage(true);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const base64 = ev.target?.result as string;
+      setFormPack(prev => ({ ...prev, coverImage: base64 }));
+      setUploadingImage(false);
+      toast.success('Imagem carregada com sucesso!');
+    };
+    reader.onerror = () => {
+      toast.error('Erro ao carregar imagem');
+      setUploadingImage(false);
+    };
+    reader.readAsDataURL(file);
   };
 
   const abrirDialogDelete = (pack: any) => {
@@ -382,15 +415,52 @@ export default function PacksPage() {
               />
             </div>
 
-            {/* URL da Capa (Opcional) */}
+            {/* Upload de Imagem de Capa */}
             <div className="space-y-2">
-              <Label className="text-sm font-medium text-gray-700">🖼️ URL da Imagem de Capa (Opcional)</Label>
-              <Input
-                type="url"
-                placeholder="Ex: https://exemplo.com/imagem.jpg"
-                value={formPack.coverImage}
-                onChange={(e) => setFormPack({ ...formPack, coverImage: e.target.value })}
-                className="shadow-sm"
+              <Label className="text-sm font-medium text-gray-700">🖼️ Imagem de Capa (Opcional)</Label>
+
+              {/* Preview da imagem */}
+              {formPack.coverImage ? (
+                <div className="relative rounded-xl overflow-hidden border-2 border-purple-300">
+                  <img
+                    src={formPack.coverImage}
+                    alt="Capa do pack"
+                    className="w-full h-40 object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setFormPack(prev => ({ ...prev, coverImage: '' }))}
+                    className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full w-7 h-7 flex items-center justify-center shadow-lg"
+                  >
+                    <XIcon className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingImage}
+                  className="w-full h-36 border-2 border-dashed border-purple-300 rounded-xl flex flex-col items-center justify-center gap-2 hover:border-purple-500 hover:bg-purple-50 transition-all cursor-pointer"
+                >
+                  {uploadingImage ? (
+                    <p className="text-sm text-purple-600">Carregando...</p>
+                  ) : (
+                    <>
+                      <Upload className="h-8 w-8 text-purple-400" />
+                      <p className="text-sm font-semibold text-purple-600">Toque para escolher foto</p>
+                      <p className="text-xs text-gray-400">JPG, PNG ou WEBP • Máx 5 MB</p>
+                    </>
+                  )}
+                </button>
+              )}
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={handleImageUpload}
               />
             </div>
           </div>
