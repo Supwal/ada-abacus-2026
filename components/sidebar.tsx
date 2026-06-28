@@ -26,7 +26,8 @@ import {
   Share2,
   Grid3X3,
   Package,
-  Crown
+  Crown,
+  Globe
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { cn } from "@/lib/utils";
@@ -66,6 +67,11 @@ const menuItems = [
     label: "Locais/Clínicas",
     href: "/locais",
     icon: MapPin
+  },
+  {
+    label: "Cidades & Estados",
+    href: "/cidades",
+    icon: Globe
   },
   {
     label: "Despesas",
