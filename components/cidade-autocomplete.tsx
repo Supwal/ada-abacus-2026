@@ -32,9 +32,9 @@ export function CidadeAutocomplete({ cidade, estado, onSelect, required }: Props
   const [idx, setIdx] = useState(-1)
   const inputRef = useRef<HTMLInputElement>(null)
   const timer = useRef<ReturnType<typeof setTimeout>>()
-  const mounted = useRef(false)
+  const [mounted, setMounted] = useState(false)
 
-  useEffect(() => { mounted.current = true }, [])
+  useEffect(() => { setMounted(true) }, [])
 
   // Carrega valor inicial no modo editar
   useEffect(() => {
