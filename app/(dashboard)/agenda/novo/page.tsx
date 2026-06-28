@@ -404,7 +404,9 @@ export default function NovoAgendamentoPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+    e.stopPropagation();
+
+    // Bloqueia se o nome do cliente for o código auto-gerado (Cli001) sem preencher
     if (!formData.nomeCliente || !formData.data || !formData.horario || !formData.periodo) {
       toast.error('Por favor, preencha todos os campos obrigatórios.');
       return;
@@ -750,24 +752,22 @@ export default function NovoAgendamentoPage() {
                 </div>
               </div>
 
-              {/* Botão de Voz */}
-              <div className="flex gap-2">
-                <div className="flex-1">
-                  <VoiceRequestButton 
-                    onRequestParsed={handleVoiceCommand}
-                    disabled={loading}
-                  />
-                </div>
-              </div>
-
-              <Button 
-                type="submit" 
+              <Button
+                type="submit"
                 disabled={loading}
                 className="w-full bg-pink-500 hover:bg-pink-600 text-white py-3 font-medium rounded-lg"
               >
                 {loading ? 'Salvando...' : 'Confirmar Agendamento'}
               </Button>
             </form>
+
+            {/* Botão de Voz FORA do form — evita submit acidental no mobile */}
+            <div className="mt-4">
+              <VoiceRequestButton
+                onRequestParsed={handleVoiceCommand}
+                disabled={loading}
+              />
+            </div>
           </CardContent>
         </Card>
 
