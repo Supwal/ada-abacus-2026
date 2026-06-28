@@ -10,19 +10,24 @@ export async function GET(request: Request) {
   try {
     const sql = neon(process.env.NEON_URL!)
 
-    // Autocomplete: busca sem acento via translate() — não precisa de extensão
+    // Autocomplete: busca sem acento — termo normalizado no JS, banco usa translate()
     if (q && q.trim().length >= 2) {
+      // Normaliza o termo no lado JS (remove acentos)
       const termo = q.trim()
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '')  // strip diacritics
+      const padrao = termo + '%'
+
       const sugestoes = await sql`
         SELECT c.nome, e.sigla
         FROM brasil_cidades c
         JOIN brasil_estados e ON e.id = c.estado_id
-        WHERE translate(lower(c.nome),
+        WHERE translate(
+                lower(c.nome),
                 'áàãâäéèêëíìîïóòõôöúùûüçñ',
-                'aaaaaaeeeeiiiiooooouuuucn')
-              LIKE translate(lower(${termo + '%'}),
-                'áàãâäéèêëíìîïóòõôöúùûüçñ',
-                'aaaaaaeeeeiiiiooooouuuucn')
+                'aaaaaaeeeeiiiiooooouuuucn'
+              ) LIKE ${padrao}
         ORDER BY c.capital DESC, c.nome
         LIMIT 10
       `
