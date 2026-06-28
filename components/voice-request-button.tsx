@@ -27,6 +27,7 @@ export function VoiceRequestButton({ onRequestParsed, disabled = false }: VoiceR
   const [checkedVoice, setCheckedVoice] = useState(false);
   const [tela, setTela] = useState<Tela>('escuta');
   const [parsedPreview, setParsedPreview] = useState<any>(null);
+  const [micBloqueado, setMicBloqueado] = useState(false);
 
   const {
     transcript,
@@ -97,16 +98,18 @@ export function VoiceRequestButton({ onRequestParsed, disabled = false }: VoiceR
     }
     setTela('escuta');
     setParsedPreview(null);
+    setMicBloqueado(false);
     resetTranscript();
     setIsOpen(true);
   };
 
   const handleStartListening = async () => {
     resetTranscript();
+    setMicBloqueado(false);
     try {
       await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch {
-      toast.error('Permissão do microfone negada. Libere nas configurações do navegador.');
+      setMicBloqueado(true);
       return;
     }
     startListening();
@@ -187,67 +190,99 @@ export function VoiceRequestButton({ onRequestParsed, disabled = false }: VoiceR
           {/* ===== TELA 1: ESCUTA ===== */}
           {tela === 'escuta' && (
             <div className="space-y-4 py-4">
-              {error && (
-                <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4 text-red-700 text-sm">
-                  {error.includes('not-allowed') || error.includes('denied') ? (
-                    <div className="space-y-2">
-                      <p className="font-bold">🎙️ Microfone bloqueado!</p>
-                      <ol className="list-decimal pl-4 space-y-1">
-                        <li>Toque no ícone 🔒 na barra de endereço</li>
-                        <li>Toque em <strong>Permissões do site</strong></li>
-                        <li>Toque em <strong>Microfone → Permitir</strong></li>
-                        <li>Recarregue a página e tente novamente</li>
-                      </ol>
+
+              {/* ===== GUIA DE PERMISSÃO (aparece quando mic está bloqueado) ===== */}
+              {micBloqueado ? (
+                <div className="space-y-4">
+                  <div className="bg-red-50 border-2 border-red-300 rounded-2xl p-5">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="bg-red-100 rounded-full p-2 shrink-0">
+                        <Mic className="h-6 w-6 text-red-600" />
+                      </div>
+                      <div>
+                        <p className="font-bold text-red-700 text-base">🎙️ Microfone Bloqueado</p>
+                        <p className="text-xs text-red-500">Siga os passos abaixo para liberar</p>
+                      </div>
                     </div>
-                  ) : <p>⚠️ {error}</p>}
-                </div>
-              )}
 
-              <div className={`p-4 rounded-lg border-2 transition-colors ${isListening ? 'bg-blue-50 border-blue-400 animate-pulse' : 'bg-gray-50 border-gray-300'}`}>
-                <p className="text-sm font-medium text-gray-700 mb-2">
-                  {isListening ? '🔴 Escutando... fale agora!' : '⚪ Pronto para escutar'}
-                </p>
-                <div className="min-h-12 bg-white rounded p-3 border border-gray-200">
-                  <p className="text-sm text-gray-900 font-medium">
-                    {transcript || interimTranscript || 'Clique em "Iniciar Escuta" para começar...'}
-                  </p>
-                </div>
-              </div>
+                    <ol className="space-y-3">
+                      {[
+                        { n: '1', icon: '🔒', text: 'Toque no ícone de cadeado na barra de endereço do Chrome' },
+                        { n: '2', icon: '⚙️', text: 'Toque em "Permissões do site"' },
+                        { n: '3', icon: '🎤', text: 'Toque em "Microfone" e selecione "Permitir"' },
+                        { n: '4', icon: '🔄', text: 'Recarregue a página e tente novamente' },
+                      ].map(({ n, icon, text }) => (
+                        <li key={n} className="flex items-start gap-3">
+                          <span className="bg-red-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center shrink-0 mt-0.5">{n}</span>
+                          <p className="text-sm text-red-800">{icon} {text}</p>
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
 
-              <div className="bg-purple-50 border-2 border-purple-200 rounded-lg p-4">
-                <p className="text-xs font-bold text-purple-700 mb-2">📝 Exemplos:</p>
-                <ul className="space-y-1 text-xs text-purple-700">
-                  <li>• "Agendar hoje às 14:00 com João, hotel messalina, valor 200 pix"</li>
-                  <li>• "Agendar amanhã às 10:00 com Maria, 150 reais"</li>
-                </ul>
-              </div>
-
-              <div className="flex gap-2">
-                {!isListening ? (
                   <Button
                     type="button"
-                    onClick={handleStartListening}
-                    className="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold"
+                    onClick={() => setMicBloqueado(false)}
+                    className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold"
                   >
                     <Mic className="h-4 w-4 mr-2" />
-                    Iniciar Escuta
+                    Tentar Novamente
                   </Button>
-                ) : (
-                  <Button
-                    type="button"
-                    onClick={() => stopListening()}
-                    className="flex-1 bg-gradient-to-r from-red-500 to-red-600 text-white font-bold"
-                  >
-                    <StopCircle className="h-4 w-4 mr-2" />
-                    Parar e Revisar
-                  </Button>
-                )}
-              </div>
 
-              <Button type="button" onClick={handleFechar} variant="outline" className="w-full">
-                <X className="h-4 w-4 mr-2" />
-                Cancelar
-              </Button>
+                  <Button type="button" onClick={handleFechar} variant="outline" className="w-full">
+                    <X className="h-4 w-4 mr-2" />
+                    Fechar
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <div className={`p-4 rounded-lg border-2 transition-colors ${isListening ? 'bg-blue-50 border-blue-400 animate-pulse' : 'bg-gray-50 border-gray-300'}`}>
+                    <p className="text-sm font-medium text-gray-700 mb-2">
+                      {isListening ? '🔴 Escutando... fale agora!' : '⚪ Pronto para escutar'}
+                    </p>
+                    <div className="min-h-12 bg-white rounded p-3 border border-gray-200">
+                      <p className="text-sm text-gray-900 font-medium">
+                        {transcript || interimTranscript || 'Clique em "Iniciar Escuta" para começar...'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="bg-purple-50 border-2 border-purple-200 rounded-lg p-4">
+                    <p className="text-xs font-bold text-purple-700 mb-2">📝 Exemplos:</p>
+                    <ul className="space-y-1 text-xs text-purple-700">
+                      <li>• "Agendar hoje às 14:00 com João, hotel messalina, valor 200 pix"</li>
+                      <li>• "Agendar amanhã às 10:00 com Maria, 150 reais"</li>
+                    </ul>
+                  </div>
+
+                  <div className="flex gap-2">
+                    {!isListening ? (
+                      <Button
+                        type="button"
+                        onClick={handleStartListening}
+                        className="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold"
+                      >
+                        <Mic className="h-4 w-4 mr-2" />
+                        Iniciar Escuta
+                      </Button>
+                    ) : (
+                      <Button
+                        type="button"
+                        onClick={() => stopListening()}
+                        className="flex-1 bg-gradient-to-r from-red-500 to-red-600 text-white font-bold"
+                      >
+                        <StopCircle className="h-4 w-4 mr-2" />
+                        Parar e Revisar
+                      </Button>
+                    )}
+                  </div>
+
+                  <Button type="button" onClick={handleFechar} variant="outline" className="w-full">
+                    <X className="h-4 w-4 mr-2" />
+                    Cancelar
+                  </Button>
+                </>
+              )}
             </div>
           )}
 
