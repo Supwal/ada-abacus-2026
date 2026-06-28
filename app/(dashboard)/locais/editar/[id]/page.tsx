@@ -13,6 +13,7 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { toast } from "sonner";
+import { CidadeAutocomplete } from "@/components/cidade-autocomplete";
 
 const estadosBrasil = [
   'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO',
@@ -155,22 +156,21 @@ export default function EditarLocalPage() {
                   className="w-full shadow-sm" required />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="cidade" className="text-sm font-medium text-gray-700">Cidade *</Label>
-                  <Input id="cidade" type="text" value={formData.cidade}
-                    onChange={(e) => handleInputChange('cidade', e.target.value)}
-                    className="w-full shadow-sm" required />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="estado" className="text-sm font-medium text-gray-700">Estado *</Label>
-                  <Select value={formData.estado} onValueChange={(v) => handleInputChange('estado', v)}>
-                    <SelectTrigger className="shadow-sm"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                    <SelectContent className="max-h-60 overflow-y-auto">
-                      {estadosBrasil.map((e) => <SelectItem key={e} value={e}>{e}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
+              {/* Cidade e Estado — autocomplete IBGE */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-gray-700">Cidade / Estado *</Label>
+                <CidadeAutocomplete
+                  cidade={formData.cidade}
+                  estado={formData.estado}
+                  onSelect={(cidade, estado) => {
+                    handleInputChange('cidade', cidade)
+                    handleInputChange('estado', estado)
+                  }}
+                  required
+                />
+                {formData.estado && (
+                  <p className="text-xs text-green-600">✓ {formData.cidade} — {formData.estado}</p>
+                )}
               </div>
 
               <div className="space-y-2">
