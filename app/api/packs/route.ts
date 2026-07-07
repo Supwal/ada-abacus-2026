@@ -1,70 +1,79 @@
-﻿export const runtime = 'edge'
+export const runtime = 'edge'
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getToken } from 'next-auth/jwt';
-import { makePrisma } from '@/lib/db';
+import { getDb, getSession } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
-  const prisma = makePrisma()
   try {
-    const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
-    if (!token?.sub) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const session = await getSession(request);
+    if (!session?.email) {
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
 
-    const userId = (token!.sub as string);
+    const sql = getDb();
+    const users = await sql`SELECT id FROM users WHERE email = ${session.email as string} LIMIT 1`;
+    if (!users.length) return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
 
-    // Buscar todos os packs do usuÃ¡rio
-    const packs = await prisma.pack.findMany({
-      where: { userId },
-      orderBy: { createdAt: 'desc' }
-    });
+    const packs = await sql`
+      SELECT id, name, photos, videos, price, cover_image as "coverImage",
+             created_at as "createdAt", updated_at as "updatedAt"
+      FROM packs
+      WHERE user_id = ${users[0].id}
+      ORDER BY created_at DESC
+    `;
 
     return NextResponse.json(packs);
   } catch (error) {
-    console.error('Erro ao buscar packs:', error);
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('Erro ao buscar packs:', msg);
     return NextResponse.json({ error: 'Erro ao buscar packs' }, { status: 500 });
   }
 }
 
 export async function POST(request: NextRequest) {
-  const prisma = makePrisma()
   try {
-    const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
-    if (!token?.sub) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const session = await getSession(request);
+    if (!session?.email) {
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
 
-    const userId = (token!.sub as string);
-    const body = await request.json();
+    const sql = getDb();
+    const users = await sql`SELECT id FROM users WHERE email = ${session.email as string} LIMIT 1`;
+    if (!users.length) return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
 
+    const userId = users[0].id;
+    const body = await request.json();
     const { name, photos, videos, price, coverImage } = body;
 
-    // ValidaÃ§Ã£o bÃ¡sica
+    // Validação básica
     if (!name || photos === undefined || videos === undefined || price === undefined) {
       return NextResponse.json(
-        { error: 'Campos obrigatÃ³rios faltando' },
+        { error: 'Campos obrigatórios faltando' },
         { status: 400 }
       );
     }
 
-    // Criar pack
-    const pack = await prisma.pack.create({
-      data: {
-        userId,
-        name,
-        photos: parseInt(photos as string),
-        videos: parseInt(videos as string),
-        price: parseFloat(price as string),
-        coverImage: coverImage || null
-      }
-    });
+    const photosInt = parseInt(photos as string);
+    const videosInt = parseInt(videos as string);
+    const priceFloat = parseFloat(price as string);
+    if (Number.isNaN(photosInt) || Number.isNaN(videosInt) || Number.isNaN(priceFloat)) {
+      return NextResponse.json({ error: 'Valores numéricos inválidos' }, { status: 400 });
+    }
 
-    return NextResponse.json(pack);
+    const id = `pack_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    const rows = await sql`
+      INSERT INTO packs (id, user_id, name, photos, videos, price, cover_image, created_at, updated_at)
+      VALUES (${id}, ${userId}, ${name}, ${photosInt}, ${videosInt}, ${priceFloat}, ${coverImage || null}, NOW(), NOW())
+      RETURNING id, name, photos, videos, price, cover_image as "coverImage",
+                created_at as "createdAt", updated_at as "updatedAt"
+    `;
+
+    return NextResponse.json(rows[0], { status: 201 });
   } catch (error) {
-    console.error('Erro ao criar pack:', error);
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('Erro ao criar pack:', msg);
     return NextResponse.json({ error: 'Erro ao criar pack' }, { status: 500 });
   }
 }

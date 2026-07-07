@@ -1,8 +1,7 @@
 ﻿export const runtime = 'edge'
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getToken } from 'next-auth/jwt';
-import { makePrisma } from '@/lib/db';
+import { makePrisma, getSession } from '@/lib/db';
 import {
   createOrGetAsaasCustomer,
   createAsaasPayment,
@@ -22,7 +21,7 @@ export const dynamic = 'force-dynamic';
 export async function POST(request: NextRequest) {
   const prisma = makePrisma()
   try {
-    const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
+    const token = await getSession(request);
     if (!token?.sub || !token?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -134,7 +133,7 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   const prisma = makePrisma()
   try {
-    const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
+    const token = await getSession(request);
     if (!token?.sub) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

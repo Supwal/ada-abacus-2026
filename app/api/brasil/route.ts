@@ -1,4 +1,4 @@
-import { neon } from '@neondatabase/serverless'
+import { getDb } from '@/lib/db'
 
 export const runtime = 'edge'
 
@@ -8,7 +8,7 @@ export async function GET(request: Request) {
   const q     = searchParams.get('q')
 
   try {
-    const sql = neon(process.env.NEON_URL!)
+    const sql = getDb()
 
     // Autocomplete: busca sem acento — termo normalizado no JS, banco usa translate()
     if (q && q.trim().length >= 2) {

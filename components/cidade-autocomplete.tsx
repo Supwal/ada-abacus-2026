@@ -125,7 +125,7 @@ export function CidadeAutocomplete({ cidade, estado, onSelect, required }: Props
       </div>
 
       {/* Dropdown fixo — escapa qualquer overflow do layout */}
-      {open && lista.length > 0 && mounted.current && (
+      {open && lista.length > 0 && mounted && (
         <div
           style={{ position: 'fixed', top: pos.top, left: pos.left, width: pos.width, zIndex: 99999 }}
           className="rounded-lg border border-border bg-popover shadow-xl overflow-hidden"

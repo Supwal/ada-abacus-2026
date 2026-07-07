@@ -1,37 +1,9 @@
 export const runtime = 'edge'
 
 import { NextRequest, NextResponse } from 'next/server'
-import { decode } from 'next-auth/jwt'
-import { neon } from '@neondatabase/serverless'
-import { getOptionalRequestContext } from '@cloudflare/next-on-pages'
+import { getDb, getSession } from '@/lib/db'
 
-const NEON_URL = 'postgresql://neondb_owner:npg_7VF3ZIiwaLWv@ep-cold-king-ac3p3xlf.sa-east-1.aws.neon.tech/neondb?sslmode=require'
-
-function getDb() {
-  try {
-    const ctx = getOptionalRequestContext()
-    const cfGlobal = (globalThis as any).__cloudflareRequestContext
-    const url = (ctx?.env as any)?.DATABASE_URL ?? cfGlobal?.env?.DATABASE_URL ?? process.env.DATABASE_URL ?? NEON_URL
-    return neon(url)
-  } catch { return neon(NEON_URL) }
-}
-
-function getSecret(): string {
-  try {
-    const ctx = getOptionalRequestContext()
-    return (ctx?.env as any)?.NEXTAUTH_SECRET ?? process.env.NEXTAUTH_SECRET ?? '3fE76BVTaFYVdBDBviIZfZnYvm0AcQTp'
-  } catch { return process.env.NEXTAUTH_SECRET ?? '3fE76BVTaFYVdBDBviIZfZnYvm0AcQTp' }
-}
-
-const COOKIE = 'next-auth.session-token'
-const SECURE_COOKIE = '__Secure-next-auth.session-token'
 const ADMIN_EMAILS = ['adaadm@ada.local']
-
-async function getSession(req: NextRequest) {
-  const token = req.cookies.get(SECURE_COOKIE)?.value || req.cookies.get(COOKIE)?.value
-  if (!token) return null
-  try { return await decode({ token, secret: getSecret() }) } catch { return null }
-}
 
 export async function GET(request: NextRequest) {
   try {
@@ -87,6 +59,18 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getSession(request)
     if (!session?.email) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 })
+
+    // Segurança: a ativação/alteração de plano pago NÃO pode ser feita direto
+    // por este endpoint (isso permitiria liberar o plano premium sem pagar).
+    // Usuários comuns devem passar pelo fluxo de pagamento (Asaas), que só
+    // ativa a assinatura após confirmação (status CONFIRMED). Aqui liberamos
+    // apenas para administradores (gestão manual).
+    if (!ADMIN_EMAILS.includes(session.email as string)) {
+      return NextResponse.json(
+        { error: 'A alteração de plano deve ser feita pelo fluxo de pagamento.' },
+        { status: 403 }
+      )
+    }
 
     const sql = getDb()
     const users = await sql`SELECT id FROM users WHERE email = ${session.email as string} LIMIT 1`

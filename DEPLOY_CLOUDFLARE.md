@@ -106,7 +106,7 @@ Acesse [dash.cloudflare.com](https://dash.cloudflare.com) → **Pages** → `ada
 | Variável | Valor |
 |---|---|
 | `DATABASE_URL` | `prisma://accelerate.prisma-data.net/?api_key=...` ← do Passo 1 |
-| `NEXTAUTH_SECRET` | `3fE76BVTaFYVdBDBviIZfZnYvm0AcQTp` |
+| `NEXTAUTH_SECRET` | `<gere um segredo aleatório: openssl rand -base64 32>` |
 | `NEXTAUTH_URL` | `https://ada-abacus-2026.pages.dev` |
 | `ASAAS_API_KEY` | `$aact_hmlg_000...` ← sua chave do Asaas |
 | `ASAAS_SANDBOX` | `false` (produção) ou `true` (testes) |

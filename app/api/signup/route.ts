@@ -1,28 +1,10 @@
 export const runtime = 'edge'
 
 import { NextRequest, NextResponse } from 'next/server'
-import { neon } from '@neondatabase/serverless'
 import { hashPassword } from '@/lib/password'
-import { getOptionalRequestContext } from '@cloudflare/next-on-pages'
+import { getDb } from '@/lib/db'
 
 export const dynamic = 'force-dynamic'
-
-const NEON_URL = 'postgresql://neondb_owner:npg_7VF3ZIiwaLWv@ep-cold-king-ac3p3xlf.sa-east-1.aws.neon.tech/neondb?sslmode=require'
-
-function getDb() {
-  try {
-    const ctx = getOptionalRequestContext()
-    const cfGlobal = (globalThis as any).__cloudflareRequestContext
-    const url =
-      (ctx?.env as any)?.DATABASE_URL ??
-      cfGlobal?.env?.DATABASE_URL ??
-      process.env.DATABASE_URL ??
-      NEON_URL
-    return neon(url)
-  } catch {
-    return neon(NEON_URL)
-  }
-}
 
 export async function POST(req: NextRequest) {
   try {

@@ -1,61 +1,57 @@
 export const runtime = 'edge'
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getToken } from 'next-auth/jwt';
-import { makePrisma } from '@/lib/db';
+import { getDb, getSession } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
+async function resolveUserId(sql: ReturnType<typeof getDb>, email: string): Promise<string | null> {
+  const users = await sql`SELECT id FROM users WHERE email = ${email} LIMIT 1`;
+  return users.length ? (users[0].id as string) : null;
+}
+
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
-  const prisma = makePrisma()
   try {
-    const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
-    if (!token?.sub) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const session = await getSession(request);
+    if (!session?.email) {
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
 
-    const userId = (token!.sub as string);
-    const { id } = params;
+    const sql = getDb();
+    const userId = await resolveUserId(sql, session.email as string);
+    if (!userId) return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
 
-    const pack = await prisma.pack.findUnique({
-      where: { id }
-    });
+    const rows = await sql`
+      SELECT id, name, photos, videos, price, cover_image as "coverImage",
+             created_at as "createdAt", updated_at as "updatedAt"
+      FROM packs
+      WHERE id = ${params.id} AND user_id = ${userId}
+      LIMIT 1
+    `;
+    if (!rows.length) return NextResponse.json({ error: 'Não encontrado' }, { status: 404 });
 
-    if (!pack || pack.userId !== userId) {
-      return NextResponse.json({ error: 'Não encontrado' }, { status: 404 });
-    }
-
-    return NextResponse.json(pack);
+    return NextResponse.json(rows[0]);
   } catch (error) {
-    console.error('Erro ao buscar pack:', error);
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('Erro ao buscar pack:', msg);
     return NextResponse.json({ error: 'Erro ao buscar pack' }, { status: 500 });
   }
 }
 
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
-  const prisma = makePrisma()
   try {
-    const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
-    if (!token?.sub) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const session = await getSession(request);
+    if (!session?.email) {
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
 
-    const userId = (token!.sub as string);
-    const { id } = params;
+    const sql = getDb();
+    const userId = await resolveUserId(sql, session.email as string);
+    if (!userId) return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
+
     const body = await request.json();
-
-    // Verificar se o pack pertence ao usuário
-    const existingPack = await prisma.pack.findUnique({
-      where: { id }
-    });
-
-    if (!existingPack || existingPack.userId !== userId) {
-      return NextResponse.json({ error: 'Não encontrado' }, { status: 404 });
-    }
-
     const { name, photos, videos, price, coverImage } = body;
 
-    // Validar campos
     if (!name || photos === undefined || videos === undefined || price === undefined) {
       return NextResponse.json(
         { error: 'Campos obrigatórios faltando' },
@@ -63,53 +59,52 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       );
     }
 
-    // Atualizar pack
-    const updatedPack = await prisma.pack.update({
-      where: { id },
-      data: {
-        name,
-        photos: parseInt(photos as string),
-        videos: parseInt(videos as string),
-        price: parseFloat(price as string),
-        coverImage: coverImage || null
-      }
-    });
+    const photosInt = parseInt(photos as string);
+    const videosInt = parseInt(videos as string);
+    const priceFloat = parseFloat(price as string);
+    if (Number.isNaN(photosInt) || Number.isNaN(videosInt) || Number.isNaN(priceFloat)) {
+      return NextResponse.json({ error: 'Valores numéricos inválidos' }, { status: 400 });
+    }
 
-    return NextResponse.json(updatedPack);
+    const rows = await sql`
+      UPDATE packs SET
+        name = ${name}, photos = ${photosInt}, videos = ${videosInt},
+        price = ${priceFloat}, cover_image = ${coverImage || null}, updated_at = NOW()
+      WHERE id = ${params.id} AND user_id = ${userId}
+      RETURNING id, name, photos, videos, price, cover_image as "coverImage",
+                created_at as "createdAt", updated_at as "updatedAt"
+    `;
+    if (!rows.length) return NextResponse.json({ error: 'Não encontrado' }, { status: 404 });
+
+    return NextResponse.json(rows[0]);
   } catch (error) {
-    console.error('Erro ao atualizar pack:', error);
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('Erro ao atualizar pack:', msg);
     return NextResponse.json({ error: 'Erro ao atualizar pack' }, { status: 500 });
   }
 }
 
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
-  const prisma = makePrisma()
   try {
-    const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
-    if (!token?.sub) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const session = await getSession(request);
+    if (!session?.email) {
+      return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
     }
 
-    const userId = (token!.sub as string);
-    const { id } = params;
+    const sql = getDb();
+    const userId = await resolveUserId(sql, session.email as string);
+    if (!userId) return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
 
-    // Verificar se o pack pertence ao usuário
-    const pack = await prisma.pack.findUnique({
-      where: { id }
-    });
-
-    if (!pack || pack.userId !== userId) {
-      return NextResponse.json({ error: 'Não encontrado' }, { status: 404 });
-    }
-
-    // Deletar pack
-    await prisma.pack.delete({
-      where: { id }
-    });
+    const rows = await sql`
+      DELETE FROM packs WHERE id = ${params.id} AND user_id = ${userId}
+      RETURNING id
+    `;
+    if (!rows.length) return NextResponse.json({ error: 'Não encontrado' }, { status: 404 });
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Erro ao deletar pack:', error);
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('Erro ao deletar pack:', msg);
     return NextResponse.json({ error: 'Erro ao deletar pack' }, { status: 500 });
   }
 }

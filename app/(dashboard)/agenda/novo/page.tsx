@@ -56,6 +56,19 @@ export default function NovoAgendamentoPage() {
   const [locations, setLocations] = useState<any[]>([]);
   const [conflito, setConflito] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  // Horários (blocos de hora em hora) já ocupados no dia selecionado
+  const [horariosOcupados, setHorariosOcupados] = useState<Set<string>>(new Set());
+
+  // Lista de horários de hora em hora (00:00 → 23:00).
+  // Mantém também um valor não-cheio (ex.: vindo da voz) para não perdê-lo.
+  const horariosDoDia = (() => {
+    const base = Array.from({ length: 24 }, (_, h) => `${String(h).padStart(2, '0')}:00`);
+    if (formData.horario && !base.includes(formData.horario)) {
+      base.push(formData.horario);
+      base.sort();
+    }
+    return base;
+  })();
 
   // Função para obter a chave do localStorage baseada na data atual
   const getStorageKeyDia = () => {
@@ -226,8 +239,9 @@ export default function NovoAgendamentoPage() {
     };
 
     const obterHorarioAtual = () => {
+      // Arredonda para o bloco de hora cheia (ex.: 14:37 → 14:00)
       const agora = new Date();
-      return agora.toTimeString().slice(0, 5);
+      return `${String(agora.getHours()).padStart(2, '0')}:00`;
     };
 
     const inicializar = async () => {
@@ -311,6 +325,41 @@ export default function NovoAgendamentoPage() {
     };
     verificar();
   }, [formData.data, formData.horario, formData.periodo]);
+
+  // Carregar blocos de horário já ocupados no dia (para marcar como indisponíveis)
+  useEffect(() => {
+    const carregarOcupados = async () => {
+      if (!formData.data) {
+        setHorariosOcupados(new Set());
+        return;
+      }
+      try {
+        const response = await fetch(`/api/appointments?startDate=${formData.data}&endDate=${formData.data}`);
+        if (!response.ok) return;
+        const agendamentos = await response.json();
+        const ocupados = new Set<string>();
+        for (const ag of agendamentos) {
+          if (!ag.startTime || !ag.endTime) continue;
+          const [hi, mi] = ag.startTime.split(':').map(Number);
+          const [hf, mf] = ag.endTime.split(':').map(Number);
+          const inicio = hi * 60 + mi;
+          const fim = hf * 60 + mf;
+          // Marca como ocupado todo bloco de hora que se sobrepõe ao agendamento
+          for (let h = 0; h < 24; h++) {
+            const blocoInicio = h * 60;
+            const blocoFim = h * 60 + 60;
+            if (blocoInicio < fim && blocoFim > inicio) {
+              ocupados.add(`${String(h).padStart(2, '0')}:00`);
+            }
+          }
+        }
+        setHorariosOcupados(ocupados);
+      } catch (error) {
+        console.error('Erro ao carregar horários ocupados:', error);
+      }
+    };
+    carregarOcupados();
+  }, [formData.data]);
 
   // Regenerar código quando o usuário mudar a DATA manualmente (não na inicialização)
   const [dataInicializada, setDataInicializada] = useState(false);
@@ -600,18 +649,32 @@ export default function NovoAgendamentoPage() {
                 </div>
               </div>
 
-              {/* Horário */}
+              {/* Horário — blocos de hora em hora (0h às 23h) */}
               <div className="space-y-2">
                 <Label htmlFor="horario" className="text-sm font-medium text-gray-700">
-                  Horário
+                  🕐 Horário
                 </Label>
-                <Input
-                  id="horario"
-                  type="time"
+                <Select
                   value={formData.horario}
-                  onChange={(e) => handleInputChange('horario', e.target.value)}
-                  className="w-full shadow-sm"
-                />
+                  onValueChange={(value) => handleInputChange('horario', value)}
+                >
+                  <SelectTrigger id="horario" className="w-full shadow-sm">
+                    <SelectValue placeholder="Selecione o horário" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-72">
+                    {horariosDoDia.map((h) => {
+                      const ocupado = horariosOcupados.has(h);
+                      return (
+                        <SelectItem key={h} value={h} disabled={ocupado}>
+                          {h}{ocupado ? ' — ocupado' : ''}
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-gray-400">
+                  Horários marcados como "ocupado" já possuem agendamento neste dia.
+                </p>
               </div>
 
               {/* Período */}

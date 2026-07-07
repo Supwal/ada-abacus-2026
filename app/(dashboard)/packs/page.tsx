@@ -33,6 +33,9 @@ import {
   DollarSign,
   Upload,
   X as XIcon,
+  Send,
+  Copy,
+  MessageCircle,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useState, useEffect, useRef } from 'react';
@@ -46,6 +49,10 @@ export default function PacksPage() {
   const [packParaEditar, setPackParaEditar] = useState<any>(null);
   const [packParaDeletar, setPackParaDeletar] = useState<any>(null);
   const [dialogDeleteAberto, setDialogDeleteAberto] = useState(false);
+  // Venda: enviar pack ao cliente
+  const [packParaVender, setPackParaVender] = useState<any>(null);
+  const [dialogVenderAberto, setDialogVenderAberto] = useState(false);
+  const [telefoneVenda, setTelefoneVenda] = useState('');
 
   const [formPack, setFormPack] = useState({
     name: '',
@@ -199,6 +206,52 @@ export default function PacksPage() {
     setDialogDeleteAberto(true);
   };
 
+  // Abre o dialog de venda (enviar pack ao cliente)
+  const abrirDialogVender = (pack: any) => {
+    setPackParaVender(pack);
+    setTelefoneVenda('');
+    setDialogVenderAberto(true);
+  };
+
+  // Máscara de celular (XX) XXXXX-XXXX
+  const formatarCelular = (valor: string) => {
+    const n = valor.replace(/\D/g, '');
+    if (n.length <= 2) return n;
+    if (n.length <= 7) return `(${n.slice(0, 2)}) ${n.slice(2)}`;
+    return `(${n.slice(0, 2)}) ${n.slice(2, 7)}-${n.slice(7, 11)}`;
+  };
+
+  // Monta a mensagem de oferta do pack
+  const gerarMensagemVenda = (pack: any) => {
+    if (!pack) return '';
+    return (
+      `✨ *${pack.name}* ✨\n\n` +
+      `📸 ${pack.photos} fotos\n` +
+      `🎬 ${pack.videos} vídeos\n\n` +
+      `💰 Valor: R$ ${pack.price.toFixed(2)}\n\n` +
+      `Garanta já o seu! 💖`
+    );
+  };
+
+  // Compartilha a oferta via WhatsApp (com ou sem número do cliente)
+  const compartilharWhatsApp = () => {
+    const msg = gerarMensagemVenda(packParaVender);
+    const tel = telefoneVenda.replace(/\D/g, '');
+    const base = tel ? `https://wa.me/55${tel}` : `https://wa.me/`;
+    window.open(`${base}?text=${encodeURIComponent(msg)}`, '_blank');
+    toast.success('Abrindo o WhatsApp...');
+  };
+
+  // Copia a mensagem de oferta para a área de transferência
+  const copiarMensagem = async () => {
+    try {
+      await navigator.clipboard.writeText(gerarMensagemVenda(packParaVender));
+      toast.success('Mensagem copiada! Cole onde quiser.');
+    } catch {
+      toast.error('Não foi possível copiar a mensagem.');
+    }
+  };
+
   const confirmarDelete = async () => {
     try {
       const response = await fetch(`/api/packs/${packParaDeletar.id}`, {
@@ -320,21 +373,31 @@ export default function PacksPage() {
                   </div>
 
                   {/* Botões */}
-                  <div className="flex gap-2">
+                  <div className="space-y-2">
+                    {/* Vender / Enviar ao cliente — ação principal */}
                     <Button
-                      onClick={() => abrirModalEditar(pack)}
-                      className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                      onClick={() => abrirDialogVender(pack)}
+                      className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
                     >
-                      <Edit className="h-4 w-4" />
-                      Editar
+                      <Send className="h-4 w-4" />
+                      Vender / Enviar ao Cliente
                     </Button>
-                    <Button
-                      onClick={() => abrirDialogDelete(pack)}
-                      className="flex-1 bg-red-500 hover:bg-red-600 text-white font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      Deletar
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={() => abrirModalEditar(pack)}
+                        className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                      >
+                        <Edit className="h-4 w-4" />
+                        Editar
+                      </Button>
+                      <Button
+                        onClick={() => abrirDialogDelete(pack)}
+                        className="flex-1 bg-red-500 hover:bg-red-600 text-white font-semibold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Deletar
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -530,6 +593,73 @@ export default function PacksPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Dialog de Venda — enviar o pack ao cliente */}
+      <Dialog open={dialogVenderAberto} onOpenChange={setDialogVenderAberto}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="bg-green-100 p-3 rounded-full">
+                <Send className="h-6 w-6 text-green-600" />
+              </div>
+              <DialogTitle className="text-2xl font-bold text-gray-900">
+                💸 Vender Pack
+              </DialogTitle>
+            </div>
+            <DialogDescription className="text-base text-gray-700 pt-2">
+              Envie a oferta deste pack direto para o cliente pelo WhatsApp.
+            </DialogDescription>
+          </DialogHeader>
+
+          {packParaVender && (
+            <div className="space-y-4 py-2">
+              {/* Preview da mensagem */}
+              <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-4 border border-green-200">
+                <p className="text-xs font-semibold text-green-700 mb-2">Prévia da mensagem:</p>
+                <pre className="whitespace-pre-wrap font-sans text-sm text-gray-800">
+{gerarMensagemVenda(packParaVender)}
+                </pre>
+              </div>
+
+              {/* Telefone do cliente (opcional) */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-gray-700">
+                  📱 WhatsApp do cliente (opcional)
+                </Label>
+                <Input
+                  type="tel"
+                  placeholder="(11) 99999-9999"
+                  value={telefoneVenda}
+                  onChange={(e) => setTelefoneVenda(formatarCelular(e.target.value))}
+                  maxLength={16}
+                  className="shadow-sm"
+                />
+                <p className="text-xs text-gray-400">
+                  Deixe em branco para escolher o contato na hora de enviar.
+                </p>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="flex-col gap-2 sm:flex-col sm:gap-2">
+            <Button
+              onClick={compartilharWhatsApp}
+              className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold shadow-lg flex items-center justify-center gap-2"
+            >
+              <MessageCircle className="h-5 w-5" />
+              Enviar pelo WhatsApp
+            </Button>
+            <Button
+              variant="outline"
+              onClick={copiarMensagem}
+              className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold border-2 border-gray-300 flex items-center justify-center gap-2"
+            >
+              <Copy className="h-4 w-4" />
+              Copiar mensagem
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

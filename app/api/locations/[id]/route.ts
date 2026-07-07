@@ -1,48 +1,7 @@
 export const runtime = 'edge'
 
 import { NextRequest, NextResponse } from 'next/server'
-import { decode } from 'next-auth/jwt'
-import { neon } from '@neondatabase/serverless'
-import { getOptionalRequestContext } from '@cloudflare/next-on-pages'
-
-const NEON_URL = 'postgresql://neondb_owner:npg_7VF3ZIiwaLWv@ep-cold-king-ac3p3xlf.sa-east-1.aws.neon.tech/neondb?sslmode=require'
-
-function getDb() {
-  try {
-    const ctx = getOptionalRequestContext()
-    const cfGlobal = (globalThis as any).__cloudflareRequestContext
-    const url =
-      (ctx?.env as any)?.DATABASE_URL ??
-      cfGlobal?.env?.DATABASE_URL ??
-      process.env.DATABASE_URL ??
-      NEON_URL
-    return neon(url)
-  } catch {
-    return neon(NEON_URL)
-  }
-}
-
-function getSecret(): string {
-  try {
-    const ctx = getOptionalRequestContext()
-    return (ctx?.env as any)?.NEXTAUTH_SECRET ?? process.env.NEXTAUTH_SECRET ?? '3fE76BVTaFYVdBDBviIZfZnYvm0AcQTp'
-  } catch {
-    return process.env.NEXTAUTH_SECRET ?? '3fE76BVTaFYVdBDBviIZfZnYvm0AcQTp'
-  }
-}
-
-const COOKIE = 'next-auth.session-token'
-const SECURE_COOKIE = '__Secure-next-auth.session-token'
-
-async function getSession(req: NextRequest) {
-  const token = req.cookies.get(SECURE_COOKIE)?.value || req.cookies.get(COOKIE)?.value
-  if (!token) return null
-  try {
-    return await decode({ token, secret: getSecret() })
-  } catch {
-    return null
-  }
-}
+import { getDb, getSession } from '@/lib/db'
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {

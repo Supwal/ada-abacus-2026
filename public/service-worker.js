@@ -1,23 +1,15 @@
 
-// Service Worker for ADA APP PWA - v4.0
-const CACHE_NAME = 'ada-app-v4.0';
-const RUNTIME_CACHE = 'ada-runtime-v4.0';
-const IMAGE_CACHE = 'ada-images-v4.0';
+// Service Worker for ADA APP PWA - v5.0
+const CACHE_NAME = 'ada-app-v5.0';
+const RUNTIME_CACHE = 'ada-runtime-v5.0';
+const IMAGE_CACHE = 'ada-images-v5.0';
 
-// Assets to cache on install
+// Assets to cache on install.
+// IMPORTANTE: NÃO pré-cachear rotas HTML (/dashboard, /agenda, ...). O HTML
+// referencia chunks JS com hash do build; servir HTML antigo em cache após um
+// novo deploy referencia chunks que não existem mais e derruba o app com
+// "client-side exception". Apenas a página offline é pré-cacheada.
 const STATIC_ASSETS = [
-  '/',
-  '/dashboard',
-  '/agenda',
-  '/ganhos',
-  '/clientes',
-  '/locais',
-  '/servicos',
-  '/despesas',
-  '/periodo',
-  '/dashboard-regional',
-  '/configuracoes',
-  '/suporte',
   '/offline',
 ];
 
@@ -94,6 +86,20 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Requisições RSC do Next.js (navegação client-side no App Router).
+  // NUNCA servir de cache-first: um payload RSC antigo quebra a hidratação
+  // após um novo deploy. Sempre buscar da rede.
+  if (request.headers.get('RSC') === '1' || url.search.includes('_rsc=')) {
+    event.respondWith(fetch(request));
+    return;
+  }
+
+  // Assets estáticos com hash (imutáveis) — cache-first é seguro
+  if (url.pathname.startsWith('/_next/static/')) {
+    event.respondWith(cacheFirstStrategy(request, RUNTIME_CACHE));
+    return;
+  }
+
   // Handle images separately
   if (request.destination === 'image') {
     event.respondWith(cacheFirstStrategy(request, IMAGE_CACHE));
@@ -106,8 +112,9 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Handle other requests
-  event.respondWith(cacheFirstStrategy(request, RUNTIME_CACHE));
+  // Demais requisições dinâmicas — network-first (nunca cache-first, para não
+  // servir conteúdo obsoleto que quebra o app após deploy)
+  event.respondWith(networkFirstStrategy(request, RUNTIME_CACHE));
 });
 
 // Cache first strategy (good for static assets)

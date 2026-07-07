@@ -3,34 +3,7 @@ export const runtime = 'edge'
 import { NextRequest, NextResponse } from 'next/server'
 import { encode, decode } from 'next-auth/jwt'
 import { verifyPassword } from '@/lib/password'
-import { neon } from '@neondatabase/serverless'
-import { getOptionalRequestContext } from '@cloudflare/next-on-pages'
-
-const NEON_URL = 'postgresql://neondb_owner:npg_7VF3ZIiwaLWv@ep-cold-king-ac3p3xlf.sa-east-1.aws.neon.tech/neondb?sslmode=require'
-
-function getDb() {
-  try {
-    const ctx = getOptionalRequestContext()
-    const cfGlobal = (globalThis as any).__cloudflareRequestContext
-    const url =
-      (ctx?.env as any)?.DATABASE_URL ??
-      cfGlobal?.env?.DATABASE_URL ??
-      process.env.DATABASE_URL ??
-      NEON_URL
-    return neon(url)
-  } catch {
-    return neon(NEON_URL)
-  }
-}
-
-function getSecret(): string {
-  try {
-    const ctx = getOptionalRequestContext()
-    return ((ctx?.env as any)?.NEXTAUTH_SECRET ?? process.env.NEXTAUTH_SECRET ?? '3fE76BVTaFYVdBDBviIZfZnYvm0AcQTp') as string
-  } catch {
-    return '3fE76BVTaFYVdBDBviIZfZnYvm0AcQTp'
-  }
-}
+import { getDb, getSecret } from '@/lib/db'
 
 const COOKIE = 'next-auth.session-token'
 const SECURE_COOKIE = '__Secure-next-auth.session-token'

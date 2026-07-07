@@ -6,6 +6,10 @@
 /.pnp
 .pnp.js
 
+# local tooling
+/.claude
+/.wrangler
+
 # testing
 /coverage
 

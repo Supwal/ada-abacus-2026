@@ -1,19 +1,9 @@
 import { NextRequest } from 'next/server'
 import { decode } from 'next-auth/jwt'
-import { getOptionalRequestContext } from '@cloudflare/next-on-pages'
+import { getSecret } from '@/lib/db'
 
 const COOKIE = 'next-auth.session-token'
 const SECURE_COOKIE = '__Secure-next-auth.session-token'
-const FALLBACK_SECRET = '3fE76BVTaFYVdBDBviIZfZnYvm0AcQTp'
-
-function getSecret(): string {
-  try {
-    const ctx = getOptionalRequestContext()
-    return ((ctx?.env as any)?.NEXTAUTH_SECRET ?? process.env.NEXTAUTH_SECRET ?? FALLBACK_SECRET) as string
-  } catch {
-    return process.env.NEXTAUTH_SECRET ?? FALLBACK_SECRET
-  }
-}
 
 export async function getAuthToken(req: NextRequest) {
   const tokenStr =
