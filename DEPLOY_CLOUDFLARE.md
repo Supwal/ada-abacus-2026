@@ -75,21 +75,33 @@ painel resolvem.
 
 Os arquivos reais (fotos/vídeos) de cada Pack ficam num bucket R2 privado
 (`ada-abacus-packs`), acessado pelo binding `PACKS_BUCKET` (ver `lib/r2.ts`).
-Diferente de variáveis de ambiente, um binding R2 **só existe** quando
-configurado no painel do Cloudflare Pages ou no `wrangler.toml` local — não
-tem representação em texto, então não dá pra "esquecer configurado" num
-`.env`.
+
+> ⚠️ **Ordem importa**: crie o bucket ANTES de declarar o binding em
+> qualquer lugar (dashboard ou `wrangler.toml`). Referenciar um bucket R2
+> que ainda não existe derruba o deploy inteiro (aparece como "Nenhuma
+> implantação disponível", sem log de build claro) — foi o que aconteceu
+> quando esse binding foi commitado no `wrangler.toml` antes do bucket
+> existir. Por isso o `wrangler.toml` deste repositório **não** declara
+> `[[r2_buckets]]` — só tem o exemplo comentado.
+
+**Passo a passo, nessa ordem:**
+1. Cloudflare dashboard → **R2** → **Create bucket** → nome
+   `ada-abacus-packs`.
+2. Só depois do bucket existir: Workers & Pages → `ada-abacus-2026` →
+   **Settings** → **Bindings** → **Add** → R2 bucket → variável
+   `PACKS_BUCKET` → bucket `ada-abacus-packs`. (Produção usa **só** o
+   binding do painel — o `wrangler.toml` não é lido para bindings em
+   deploy via integração Git.)
+3. Se o deploy mais recente tiver falhado por causa disso, dispare um novo
+   deploy depois (ex.: `git push` de um commit vazio, ou "Retry
+   deployment" no painel).
 
 - **Local**: `npm run dev` (Node puro) **não tem acesso a bindings R2** —
   upload de arquivo vai falhar com "binding não disponível". Pra testar de
-  verdade localmente: `next build && npx @cloudflare/next-on-pages && npx
-  wrangler pages dev .vercel/output/static` (usa o `[[r2_buckets]]` já
-  declarado no `wrangler.toml`).
-- **Produção**: o binding é configurado só pelo painel — Cloudflare
-  dashboard → Workers & Pages → `ada-abacus-2026` → Settings → Bindings →
-  Add → R2 bucket → variável `PACKS_BUCKET` → bucket `ada-abacus-packs`.
-  Isso precisa ser feito manualmente uma vez (o `wrangler.toml` sozinho não
-  cria bindings em produção quando o deploy é via integração GitHub).
+  verdade localmente, depois de criar o bucket: descomente o bloco
+  `[[r2_buckets]]` no `wrangler.toml` e rode `next build && npx
+  @cloudflare/next-on-pages && npx wrangler pages dev
+  .vercel/output/static`.
 
 ## Banco de dados
 

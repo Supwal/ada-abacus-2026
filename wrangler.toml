@@ -6,6 +6,15 @@ pages_build_output_dir = ".vercel/output/static"
 [vars]
 NODE_ENV = "production"
 
-[[r2_buckets]]
-binding = "PACKS_BUCKET"
-bucket_name = "ada-abacus-packs"
+# O binding R2 (PACKS_BUCKET) NÃO fica aqui de propósito: para deploy via
+# integração Git, o Cloudflare Pages exige que o bucket já exista na conta
+# antes de aceitar a referência — declarar aqui antes de criar o bucket
+# derruba o deploy inteiro (ficou "Nenhuma implantação disponível").
+# Configurar em produção só pelo painel: Workers & Pages → ada-abacus-2026
+# → Settings → Bindings → Add → R2 bucket → variável PACKS_BUCKET.
+#
+# Para testar localmente com `wrangler pages dev`, descomente as linhas
+# abaixo DEPOIS de criar o bucket `ada-abacus-packs` na sua conta:
+# [[r2_buckets]]
+# binding = "PACKS_BUCKET"
+# bucket_name = "ada-abacus-packs"
