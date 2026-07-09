@@ -23,6 +23,23 @@ o primeiro passo é verificar se o commit foi de fato enviado ao GitHub
 (`git log origin/main -1`) e se o deploy correspondente aparece como
 concluído no painel.
 
+### ⚠️ Commit ≠ Deploy — sempre confira se o push chegou
+
+Um `git commit` só existe na sua máquina. **Só conta como publicado depois
+do `git push` terminar com sucesso.** Depois de qualquer commit, confirme
+antes de considerar a tarefa concluída:
+
+```bash
+git log --oneline -1                 # último commit local
+git log --oneline -1 origin/main     # último commit que o GitHub já tem
+```
+
+Se os dois hashes forem diferentes, o push não chegou — rode `git push`
+de novo. Em alguns ambientes o Git Credential Manager pede login de novo
+depois de um tempo (o cache expira); nesse caso o `git push` abre o
+navegador pedindo para entrar no GitHub de novo — é normal, só repetir o
+login resolve.
+
 > O cache do Service Worker do PWA no celular do usuário também pode fazer
 > uma versão antiga parecer "travada" mesmo com o deploy novo já no ar —
 > nesse caso, reinstalar o PWA ou limpar o cache do site resolve.
