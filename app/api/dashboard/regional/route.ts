@@ -38,12 +38,15 @@ export async function GET(request: NextRequest) {
       dataInicio = `${now.getFullYear()}-01-01`
     }
 
-    // Buscar agendamentos com joins para local
-    const rows = await sql`
+    // Busca todos os agendamentos do usuário e filtra em JS abaixo — o driver
+    // @neondatabase/serverless não suporta compor fragmentos `sql` aninhados
+    // dentro de outro `sql` (cada `sql\`...\`` já dispara sua própria query),
+    // então o WHERE dinâmico precisa ser feito depois de buscar, não na query.
+    const allRows = await sql`
       SELECT
         a.id,
         a.status,
-        a.price,
+        a.value,
         a.date,
         a.location_id,
         l.name AS location_name,
@@ -52,12 +55,16 @@ export async function GET(request: NextRequest) {
       FROM appointments a
       LEFT JOIN locations l ON a.location_id = l.id
       WHERE a.user_id = ${userId}
-        ${dataInicio ? sql`AND a.date >= ${dataInicio}` : sql``}
-        ${estado ? sql`AND LOWER(l.state) = LOWER(${estado})` : sql``}
-        ${cidade ? sql`AND LOWER(l.city) = LOWER(${cidade})` : sql``}
-        ${localId ? sql`AND a.location_id = ${localId}` : sql``}
       ORDER BY a.date DESC
     `
+
+    const rows = allRows.filter((row: any) => {
+      if (dataInicio && new Date(row.date) < new Date(dataInicio)) return false
+      if (estado && (row.location_state || '').toLowerCase() !== estado.toLowerCase()) return false
+      if (cidade && (row.location_city || '').toLowerCase() !== cidade.toLowerCase()) return false
+      if (localId && row.location_id !== localId) return false
+      return true
+    })
 
     // Buscar todos os locais do usuário (para o dropdown de filtro)
     const locaisRows = await sql`
@@ -80,7 +87,7 @@ export async function GET(request: NextRequest) {
 
     for (const row of rows) {
       totalAgendamentos++
-      const preco = parseFloat(row.price || '0')
+      const preco = parseFloat(row.value || '0')
       receitaTotal += preco
 
       if (row.status === 'confirmado' || row.status === 'confirmed') confirmados++
