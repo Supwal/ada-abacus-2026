@@ -30,7 +30,7 @@ O Prisma Accelerate é um proxy que permite usar o Prisma no Edge Runtime do Clo
 2. Crie um novo projeto → **Add a database**
 3. Cole a connection string do seu banco PostgreSQL:
    ```
-   postgresql://role_f7d3c5cb1:MvA7tDboMEcfioB8a0UIOiK2OeGxJr_x@db-f7d3c5cb1.db002.hosteddb.reai.io:5432/f7d3c5cb1
+   postgresql://usuario:senha@host:5432/nome_do_banco
    ```
 4. Copie a **Accelerate Connection String** gerada — começa com `prisma://`
 5. Guarde essa URL: será o `DATABASE_URL` de produção
@@ -64,7 +64,7 @@ npx prisma generate
 
 **Opção B — via SQL direto:**
 ```bash
-psql "postgresql://role_f7d3c5cb1:MvA7tDboMEcfioB8a0UIOiK2OeGxJr_x@db-f7d3c5cb1.db002.hosteddb.reai.io:5432/f7d3c5cb1" \
+psql "postgresql://usuario:senha@host:5432/nome_do_banco" \
   -f scripts/reset-db.sql
 npx prisma generate
 ```
