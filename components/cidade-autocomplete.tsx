@@ -89,6 +89,24 @@ export function CidadeAutocomplete({ cidade, estado, onSelect, required }: Props
     else if (e.key === 'Escape') setOpen(false)
   }
 
+  // Se o campo perder o foco sem uma cidade ter sido escolhida na lista
+  // (ex.: toque no dropdown não registrou por causa do teclado do celular),
+  // tenta resolver automaticamente pelo texto digitado — evita cidade/estado
+  // ficarem vazios "por baixo" enquanto o campo parece preenchido.
+  const handleBlur = () => {
+    setTimeout(async () => {
+      const jaConfirmado = / - [A-Z]{2}$/.test(input)
+      if (jaConfirmado || input.trim().length < 2) return
+      try {
+        const r = await fetch(`/api/brasil?q=${encodeURIComponent(input.trim())}`)
+        if (!r.ok) return
+        const d = await r.json()
+        const res: Sugestao[] = d.sugestoes ?? []
+        if (res.length > 0) pick(res[0])
+      } catch {}
+    }, 200)
+  }
+
   useEffect(() => {
     const close = (e: MouseEvent) => {
       if (inputRef.current && !inputRef.current.contains(e.target as Node)) setOpen(false)
@@ -107,6 +125,7 @@ export function CidadeAutocomplete({ cidade, estado, onSelect, required }: Props
           onChange={handleChange}
           onKeyDown={handleKey}
           onFocus={() => { if (lista.length > 0) { calcPos(); setOpen(true) } }}
+          onBlur={handleBlur}
           required={required}
           autoComplete="off"
           spellCheck={false}

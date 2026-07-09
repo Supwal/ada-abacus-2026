@@ -11,6 +11,7 @@ import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { CidadeAutocomplete } from "@/components/cidade-autocomplete";
+import { UF_NOMES } from "@/lib/estados-brasil";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
@@ -74,8 +75,16 @@ export default function NovoLocalPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.nomeLocal || !formData.endereco || !formData.cidade || !formData.estado) {
-      toast.error('Por favor, preencha todos os campos obrigatórios.');
+    if (!formData.nomeLocal) {
+      toast.error('Preencha o nome do local.');
+      return;
+    }
+    if (!formData.endereco) {
+      toast.error('Preencha o endereço.');
+      return;
+    }
+    if (!formData.cidade || !formData.estado) {
+      toast.error('Selecione a cidade na lista de sugestões (o campo Estado/Sigla precisa preencher sozinho ao escolher).');
       return;
     }
 
@@ -241,10 +250,10 @@ export default function NovoLocalPage() {
                 />
               </div>
 
-              {/* Cidade e Estado — autocomplete IBGE */}
+              {/* Cidade — autocomplete IBGE */}
               <div className="space-y-2">
                 <Label className="text-sm font-medium text-gray-700">
-                  Cidade / Estado
+                  Cidade
                 </Label>
                 <CidadeAutocomplete
                   cidade={formData.cidade}
@@ -255,6 +264,37 @@ export default function NovoLocalPage() {
                   }}
                   required
                 />
+                <p className="text-xs text-gray-400">
+                  Digite e toque numa sugestão da lista — Estado e Sigla abaixo preenchem sozinhos.
+                </p>
+              </div>
+
+              {/* Estado e Sigla — preenchidos automaticamente ao escolher a cidade */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-gray-700">
+                    Estado
+                  </Label>
+                  <Input
+                    type="text"
+                    value={UF_NOMES[formData.estado] || ''}
+                    readOnly
+                    placeholder="Selecione a cidade acima"
+                    className="w-full shadow-sm bg-gray-100"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-gray-700">
+                    Sigla
+                  </Label>
+                  <Input
+                    type="text"
+                    value={formData.estado}
+                    readOnly
+                    placeholder="—"
+                    className="w-full shadow-sm bg-gray-100"
+                  />
+                </div>
               </div>
 
               {/* Telefone */}
