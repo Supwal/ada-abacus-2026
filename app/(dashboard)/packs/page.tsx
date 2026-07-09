@@ -36,6 +36,9 @@ import {
   Send,
   Copy,
   MessageCircle,
+  FolderOpen,
+  Loader2,
+  Link2,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useState, useEffect, useRef } from 'react';
@@ -53,6 +56,16 @@ export default function PacksPage() {
   const [packParaVender, setPackParaVender] = useState<any>(null);
   const [dialogVenderAberto, setDialogVenderAberto] = useState(false);
   const [telefoneVenda, setTelefoneVenda] = useState('');
+  const [shareLink, setShareLink] = useState('');
+  const [carregandoShare, setCarregandoShare] = useState(false);
+
+  // Gerenciar arquivos reais (fotos/vídeos) do pack
+  const [packParaGerenciarMidia, setPackParaGerenciarMidia] = useState<any>(null);
+  const [dialogMidiaAberto, setDialogMidiaAberto] = useState(false);
+  const [midias, setMidias] = useState<any[]>([]);
+  const [carregandoMidias, setCarregandoMidias] = useState(false);
+  const [enviandoMidia, setEnviandoMidia] = useState(false);
+  const midiaFileInputRef = useRef<HTMLInputElement>(null);
 
   const [formPack, setFormPack] = useState({
     name: '',
@@ -206,11 +219,126 @@ export default function PacksPage() {
     setDialogDeleteAberto(true);
   };
 
-  // Abre o dialog de venda (enviar pack ao cliente)
-  const abrirDialogVender = (pack: any) => {
+  const buildShareLink = (token: string) =>
+    typeof window !== 'undefined' ? `${window.location.origin}/p/${token}` : '';
+
+  // Abre o dialog de venda (enviar pack ao cliente) — garante que existe um
+  // link público antes de mostrar a mensagem, gerando na primeira vez.
+  const abrirDialogVender = async (pack: any) => {
     setPackParaVender(pack);
     setTelefoneVenda('');
+    setShareLink(pack.shareToken ? buildShareLink(pack.shareToken) : '');
     setDialogVenderAberto(true);
+
+    if (!pack.shareToken) {
+      setCarregandoShare(true);
+      try {
+        const response = await fetch(`/api/packs/${pack.id}/share`, { method: 'POST' });
+        if (response.ok) {
+          const data = await response.json();
+          setShareLink(buildShareLink(data.shareToken));
+          setPacks((prev) => prev.map((p) => (p.id === pack.id ? { ...p, shareToken: data.shareToken } : p)));
+        } else {
+          toast.error('Erro ao gerar o link do pack');
+        }
+      } catch (error) {
+        console.error('Erro ao gerar link:', error);
+        toast.error('Erro ao gerar o link do pack');
+      } finally {
+        setCarregandoShare(false);
+      }
+    }
+  };
+
+  // Abre o dialog de gerenciar arquivos (fotos/vídeos reais do pack)
+  const abrirGerenciarMidia = (pack: any) => {
+    setPackParaGerenciarMidia(pack);
+    setDialogMidiaAberto(true);
+    carregarMidias(pack.id);
+  };
+
+  const carregarMidias = async (packId: string) => {
+    try {
+      setCarregandoMidias(true);
+      const response = await fetch(`/api/packs/${packId}/media`);
+      if (response.ok) {
+        setMidias(await response.json());
+      } else {
+        toast.error('Erro ao carregar arquivos do pack');
+      }
+    } catch (error) {
+      console.error('Erro ao carregar arquivos:', error);
+      toast.error('Erro ao carregar arquivos do pack');
+    } finally {
+      setCarregandoMidias(false);
+    }
+  };
+
+  const MAX_FOTO_BYTES = 10 * 1024 * 1024; // 10MB — mesmo limite do servidor
+  const MAX_VIDEO_BYTES = 45 * 1024 * 1024; // 45MB — mesmo limite do servidor
+
+  const handleUploadMidia = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !packParaGerenciarMidia) return;
+    e.target.value = '';
+
+    const tipo: 'photo' | 'video' = file.type.startsWith('video/') ? 'video' : 'photo';
+    if (tipo === 'photo' && !file.type.startsWith('image/')) {
+      toast.error('Selecione uma imagem ou um vídeo.');
+      return;
+    }
+    const maxBytes = tipo === 'photo' ? MAX_FOTO_BYTES : MAX_VIDEO_BYTES;
+    if (file.size > maxBytes) {
+      toast.error(`Arquivo muito grande. Máximo ${Math.round(maxBytes / (1024 * 1024))}MB para ${tipo === 'photo' ? 'fotos' : 'vídeos'}.`);
+      return;
+    }
+
+    setEnviandoMidia(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('type', tipo);
+      const response = await fetch(`/api/packs/${packParaGerenciarMidia.id}/media`, {
+        method: 'POST',
+        body: formData,
+      });
+      if (response.ok) {
+        toast.success('Arquivo enviado com sucesso!');
+        carregarMidias(packParaGerenciarMidia.id);
+        carregarPacks();
+      } else {
+        const err = await response.json().catch(() => ({}));
+        toast.error(err.error || 'Erro ao enviar arquivo');
+      }
+    } catch (error) {
+      console.error('Erro ao enviar arquivo:', error);
+      toast.error('Erro ao enviar arquivo');
+    } finally {
+      setEnviandoMidia(false);
+    }
+  };
+
+  const excluirMidia = async (mediaId: string) => {
+    if (!packParaGerenciarMidia) return;
+    try {
+      const response = await fetch(`/api/packs/${packParaGerenciarMidia.id}/media/${mediaId}`, {
+        method: 'DELETE',
+      });
+      if (response.ok) {
+        setMidias((prev) => prev.filter((m) => m.id !== mediaId));
+        carregarPacks();
+      } else {
+        toast.error('Erro ao excluir arquivo');
+      }
+    } catch (error) {
+      console.error('Erro ao excluir arquivo:', error);
+      toast.error('Erro ao excluir arquivo');
+    }
+  };
+
+  const formatarTamanho = (bytes: number) => {
+    if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)}KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
   };
 
   // Máscara de celular (XX) XXXXX-XXXX
@@ -221,21 +349,22 @@ export default function PacksPage() {
     return `(${n.slice(0, 2)}) ${n.slice(2, 7)}-${n.slice(7, 11)}`;
   };
 
-  // Monta a mensagem de oferta do pack
-  const gerarMensagemVenda = (pack: any) => {
+  // Monta a mensagem de oferta do pack, com o link de entrega no final
+  const gerarMensagemVenda = (pack: any, link: string) => {
     if (!pack) return '';
     return (
       `✨ *${pack.name}* ✨\n\n` +
       `📸 ${pack.photos} fotos\n` +
       `🎬 ${pack.videos} vídeos\n\n` +
       `💰 Valor: R$ ${pack.price.toFixed(2)}\n\n` +
-      `Garanta já o seu! 💖`
+      `Garanta já o seu! 💖` +
+      (link ? `\n\n📎 Suas fotos e vídeos:\n${link}` : '')
     );
   };
 
   // Compartilha a oferta via WhatsApp (com ou sem número do cliente)
   const compartilharWhatsApp = () => {
-    const msg = gerarMensagemVenda(packParaVender);
+    const msg = gerarMensagemVenda(packParaVender, shareLink);
     const tel = telefoneVenda.replace(/\D/g, '');
     const base = tel ? `https://wa.me/55${tel}` : `https://wa.me/`;
     window.open(`${base}?text=${encodeURIComponent(msg)}`, '_blank');
@@ -245,10 +374,20 @@ export default function PacksPage() {
   // Copia a mensagem de oferta para a área de transferência
   const copiarMensagem = async () => {
     try {
-      await navigator.clipboard.writeText(gerarMensagemVenda(packParaVender));
+      await navigator.clipboard.writeText(gerarMensagemVenda(packParaVender, shareLink));
       toast.success('Mensagem copiada! Cole onde quiser.');
     } catch {
       toast.error('Não foi possível copiar a mensagem.');
+    }
+  };
+
+  // Copia só o link de entrega (útil pra mandar por outro app, ex.: Instagram)
+  const copiarLink = async () => {
+    try {
+      await navigator.clipboard.writeText(shareLink);
+      toast.success('Link copiado!');
+    } catch {
+      toast.error('Não foi possível copiar o link.');
     }
   };
 
@@ -372,6 +511,17 @@ export default function PacksPage() {
                     </p>
                   </div>
 
+                  {/* Arquivos reais enviados */}
+                  <p className={cn(
+                    "text-xs mb-3 flex items-center gap-1",
+                    (pack.mediaCount || 0) > 0 ? "text-emerald-600" : "text-amber-600"
+                  )}>
+                    <FolderOpen className="h-3.5 w-3.5" />
+                    {(pack.mediaCount || 0) > 0
+                      ? `${pack.mediaCount} arquivo(s) enviado(s)`
+                      : 'Nenhum arquivo enviado ainda'}
+                  </p>
+
                   {/* Botões */}
                   <div className="space-y-2">
                     {/* Vender / Enviar ao cliente — ação principal */}
@@ -381,6 +531,14 @@ export default function PacksPage() {
                     >
                       <Send className="h-4 w-4" />
                       Vender / Enviar ao Cliente
+                    </Button>
+                    <Button
+                      onClick={() => abrirGerenciarMidia(pack)}
+                      variant="outline"
+                      className="w-full border-2 border-purple-300 text-purple-700 hover:bg-purple-50 font-semibold flex items-center justify-center gap-2"
+                    >
+                      <FolderOpen className="h-4 w-4" />
+                      Gerenciar Arquivos
                     </Button>
                     <div className="flex gap-2">
                       <Button
@@ -613,12 +771,29 @@ export default function PacksPage() {
 
           {packParaVender && (
             <div className="space-y-4 py-2">
+              {(packParaVender.mediaCount || 0) === 0 && (
+                <div className="bg-amber-50 border border-amber-300 text-amber-800 px-3 py-2 rounded-md text-sm flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                  <span>
+                    Este pack ainda não tem fotos/vídeos enviados — o cliente vai abrir o
+                    link e não vai encontrar nada. Feche esta janela e use "Gerenciar
+                    Arquivos" primeiro.
+                  </span>
+                </div>
+              )}
+
               {/* Preview da mensagem */}
               <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-4 border border-green-200">
                 <p className="text-xs font-semibold text-green-700 mb-2">Prévia da mensagem:</p>
-                <pre className="whitespace-pre-wrap font-sans text-sm text-gray-800">
-{gerarMensagemVenda(packParaVender)}
-                </pre>
+                {carregandoShare ? (
+                  <p className="text-sm text-gray-500 flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" /> Gerando link...
+                  </p>
+                ) : (
+                  <pre className="whitespace-pre-wrap font-sans text-sm text-gray-800">
+{gerarMensagemVenda(packParaVender, shareLink)}
+                  </pre>
+                )}
               </div>
 
               {/* Telefone do cliente (opcional) */}
@@ -644,18 +819,121 @@ export default function PacksPage() {
           <DialogFooter className="flex-col gap-2 sm:flex-col sm:gap-2">
             <Button
               onClick={compartilharWhatsApp}
-              className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold shadow-lg flex items-center justify-center gap-2"
+              disabled={carregandoShare}
+              className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold shadow-lg flex items-center justify-center gap-2 disabled:opacity-60"
             >
               <MessageCircle className="h-5 w-5" />
               Enviar pelo WhatsApp
             </Button>
+            <div className="flex gap-2 w-full">
+              <Button
+                variant="outline"
+                onClick={copiarMensagem}
+                disabled={carregandoShare}
+                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold border-2 border-gray-300 flex items-center justify-center gap-2 disabled:opacity-60"
+              >
+                <Copy className="h-4 w-4" />
+                Copiar mensagem
+              </Button>
+              <Button
+                variant="outline"
+                onClick={copiarLink}
+                disabled={carregandoShare}
+                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold border-2 border-gray-300 flex items-center justify-center gap-2 disabled:opacity-60"
+              >
+                <Link2 className="h-4 w-4" />
+                Copiar link
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de Gerenciar Arquivos — upload real de fotos/vídeos do pack */}
+      <Dialog open={dialogMidiaAberto} onOpenChange={setDialogMidiaAberto}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="bg-purple-100 p-3 rounded-full">
+                <FolderOpen className="h-6 w-6 text-purple-600" />
+              </div>
+              <DialogTitle className="text-2xl font-bold text-gray-900">
+                📁 Arquivos do Pack
+              </DialogTitle>
+            </div>
+            <DialogDescription className="text-base text-gray-700 pt-2">
+              {packParaGerenciarMidia?.name}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2">
+            <button
+              type="button"
+              onClick={() => midiaFileInputRef.current?.click()}
+              disabled={enviandoMidia}
+              className="w-full h-24 border-2 border-dashed border-purple-300 rounded-xl flex flex-col items-center justify-center gap-1 hover:border-purple-500 hover:bg-purple-50 transition-all cursor-pointer disabled:opacity-60"
+            >
+              {enviandoMidia ? (
+                <>
+                  <Loader2 className="h-6 w-6 text-purple-500 animate-spin" />
+                  <p className="text-sm text-purple-600">Enviando...</p>
+                </>
+              ) : (
+                <>
+                  <Upload className="h-6 w-6 text-purple-400" />
+                  <p className="text-sm font-semibold text-purple-600">Adicionar foto ou vídeo</p>
+                  <p className="text-xs text-gray-400">Fotos até 10MB • Vídeos até 45MB</p>
+                </>
+              )}
+            </button>
+            <input
+              ref={midiaFileInputRef}
+              type="file"
+              accept="image/*,video/*"
+              className="hidden"
+              onChange={handleUploadMidia}
+            />
+
+            {carregandoMidias ? (
+              <p className="text-sm text-gray-500 text-center py-4">Carregando arquivos...</p>
+            ) : midias.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-4">Nenhum arquivo enviado ainda.</p>
+            ) : (
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {midias.map((m) => (
+                  <div
+                    key={m.id}
+                    className="flex items-center justify-between gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2"
+                  >
+                    <div className="flex items-center gap-2 text-sm text-gray-700">
+                      {m.type === 'video' ? (
+                        <Video className="h-4 w-4 text-blue-600 shrink-0" />
+                      ) : (
+                        <Images className="h-4 w-4 text-purple-600 shrink-0" />
+                      )}
+                      <span>{m.type === 'video' ? 'Vídeo' : 'Foto'} · {formatarTamanho(m.sizeBytes)}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => excluirMidia(m.id)}
+                      className="text-red-500 hover:text-red-700"
+                      title="Excluir"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
             <Button
               variant="outline"
-              onClick={copiarMensagem}
-              className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold border-2 border-gray-300 flex items-center justify-center gap-2"
+              onClick={() => setDialogMidiaAberto(false)}
+              className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold border-2 border-gray-300"
             >
-              <Copy className="h-4 w-4" />
-              Copiar mensagem
+              Fechar
             </Button>
           </DialogFooter>
         </DialogContent>

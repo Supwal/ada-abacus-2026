@@ -245,16 +245,33 @@ model Pack {
   id          String   @id @default(cuid())
   userId      String   @map("user_id")
   name        String
-  photos      Int      // quantidade de fotos
-  videos      Int      // quantidade de vídeos
+  photos      Int      // quantidade de fotos anunciada (editada à mão)
+  videos      Int      // quantidade de vídeos anunciada (editada à mão)
   price       Float    // preço do pack
   coverImage  String?  @map("cover_image") // URL da imagem de capa
+  shareToken  String?  @unique @map("share_token") // token do link público de entrega
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user  User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  media PackMedia[]
 
   @@map("packs")
+}
+
+model PackMedia {
+  id         String   @id @default(cuid())
+  packId     String   @map("pack_id")
+  type       String   // "photo" ou "video"
+  r2Key      String   @map("r2_key")
+  mimeType   String   @map("mime_type")
+  sizeBytes  Int      @map("size_bytes")
+  orderIndex Int      @default(0) @map("order_index")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  pack Pack @relation(fields: [packId], references: [id], onDelete: Cascade)
+
+  @@map("pack_media")
 }
 
 model Subscription {

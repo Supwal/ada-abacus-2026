@@ -54,6 +54,26 @@ painel resolvem.
 
 ---
 
+## Armazenamento de arquivos (R2) — entrega de Packs
+
+Os arquivos reais (fotos/vídeos) de cada Pack ficam num bucket R2 privado
+(`ada-abacus-packs`), acessado pelo binding `PACKS_BUCKET` (ver `lib/r2.ts`).
+Diferente de variáveis de ambiente, um binding R2 **só existe** quando
+configurado no painel do Cloudflare Pages ou no `wrangler.toml` local — não
+tem representação em texto, então não dá pra "esquecer configurado" num
+`.env`.
+
+- **Local**: `npm run dev` (Node puro) **não tem acesso a bindings R2** —
+  upload de arquivo vai falhar com "binding não disponível". Pra testar de
+  verdade localmente: `next build && npx @cloudflare/next-on-pages && npx
+  wrangler pages dev .vercel/output/static` (usa o `[[r2_buckets]]` já
+  declarado no `wrangler.toml`).
+- **Produção**: o binding é configurado só pelo painel — Cloudflare
+  dashboard → Workers & Pages → `ada-abacus-2026` → Settings → Bindings →
+  Add → R2 bucket → variável `PACKS_BUCKET` → bucket `ada-abacus-packs`.
+  Isso precisa ser feito manualmente uma vez (o `wrangler.toml` sozinho não
+  cria bindings em produção quando o deploy é via integração GitHub).
+
 ## Banco de dados
 
 O projeto usa **Neon Postgres** direto, via `@neondatabase/serverless` +

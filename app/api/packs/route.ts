@@ -17,11 +17,16 @@ export async function GET(request: NextRequest) {
     if (!users.length) return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
 
     const packs = await sql`
-      SELECT id, name, photos, videos, price, cover_image as "coverImage",
-             created_at as "createdAt", updated_at as "updatedAt"
-      FROM packs
-      WHERE user_id = ${users[0].id}
-      ORDER BY created_at DESC
+      SELECT p.id, p.name, p.photos, p.videos, p.price, p.cover_image as "coverImage",
+             p.share_token as "shareToken",
+             COALESCE(m.count, 0)::int as "mediaCount",
+             p.created_at as "createdAt", p.updated_at as "updatedAt"
+      FROM packs p
+      LEFT JOIN (
+        SELECT pack_id, COUNT(*) as count FROM pack_media GROUP BY pack_id
+      ) m ON m.pack_id = p.id
+      WHERE p.user_id = ${users[0].id}
+      ORDER BY p.created_at DESC
     `;
 
     return NextResponse.json(packs);

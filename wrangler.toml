@@ -5,3 +5,7 @@ pages_build_output_dir = ".vercel/output/static"
 
 [vars]
 NODE_ENV = "production"
+
+[[r2_buckets]]
+binding = "PACKS_BUCKET"
+bucket_name = "ada-abacus-packs"
