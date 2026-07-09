@@ -56,19 +56,31 @@ export default function NovoAgendamentoPage() {
   const [locations, setLocations] = useState<any[]>([]);
   const [conflito, setConflito] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  // Horários (blocos de hora em hora) já ocupados no dia selecionado
+  // Horários já ocupados no dia selecionado (considerando o intervalo escolhido)
   const [horariosOcupados, setHorariosOcupados] = useState<Set<string>>(new Set());
+  // Intervalo entre os horários da lista: 20, 30 ou 60 minutos
+  const [intervaloHorario, setIntervaloHorario] = useState('60');
 
-  // Lista de horários de hora em hora (00:00 → 23:00).
-  // Mantém também um valor não-cheio (ex.: vindo da voz) para não perdê-lo.
+  // Lista de horários no intervalo escolhido (00:00 → 23:xx).
+  // Mantém também um valor fora do padrão (ex.: vindo da voz) para não perdê-lo.
   const horariosDoDia = (() => {
-    const base = Array.from({ length: 24 }, (_, h) => `${String(h).padStart(2, '0')}:00`);
+    const passo = parseInt(intervaloHorario) || 60;
+    const base: string[] = [];
+    for (let m = 0; m < 24 * 60; m += passo) {
+      base.push(`${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`);
+    }
     if (formData.horario && !base.includes(formData.horario)) {
       base.push(formData.horario);
       base.sort();
     }
     return base;
   })();
+
+  // Altera o intervalo dos horários e salva como preferência do dia
+  const handleIntervaloChange = (value: string) => {
+    setIntervaloHorario(value);
+    salvarPreferenciasDia('intervalo', value);
+  };
 
   // Função para obter a chave do localStorage baseada na data atual
   const getStorageKeyDia = () => {
@@ -261,6 +273,7 @@ export default function NovoAgendamentoPage() {
         local: preferencias.local || prev.local,
         valor: preferencias.valor || prev.valor,
       }));
+      setIntervaloHorario(preferencias.intervalo || '60');
       // Marca que a data foi inicializada — agora o useEffect de data pode agir
       setDataInicializada(true);
     };
@@ -338,18 +351,19 @@ export default function NovoAgendamentoPage() {
         if (!response.ok) return;
         const agendamentos = await response.json();
         const ocupados = new Set<string>();
+        const passo = parseInt(intervaloHorario) || 60;
         for (const ag of agendamentos) {
           if (!ag.startTime || !ag.endTime) continue;
           const [hi, mi] = ag.startTime.split(':').map(Number);
           const [hf, mf] = ag.endTime.split(':').map(Number);
           const inicio = hi * 60 + mi;
           const fim = hf * 60 + mf;
-          // Marca como ocupado todo bloco de hora que se sobrepõe ao agendamento
-          for (let h = 0; h < 24; h++) {
-            const blocoInicio = h * 60;
-            const blocoFim = h * 60 + 60;
+          // Marca como ocupado todo bloco do intervalo escolhido que se sobrepõe ao agendamento
+          for (let m = 0; m < 24 * 60; m += passo) {
+            const blocoInicio = m;
+            const blocoFim = m + passo;
             if (blocoInicio < fim && blocoFim > inicio) {
-              ocupados.add(`${String(h).padStart(2, '0')}:00`);
+              ocupados.add(`${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`);
             }
           }
         }
@@ -359,7 +373,7 @@ export default function NovoAgendamentoPage() {
       }
     };
     carregarOcupados();
-  }, [formData.data]);
+  }, [formData.data, intervaloHorario]);
 
   // Regenerar código quando o usuário mudar a DATA manualmente (não na inicialização)
   const [dataInicializada, setDataInicializada] = useState(false);
@@ -649,7 +663,27 @@ export default function NovoAgendamentoPage() {
                 </div>
               </div>
 
-              {/* Horário — blocos de hora em hora (0h às 23h) */}
+              {/* Intervalo dos horários — 20, 30 minutos ou hora em hora */}
+              <div className="space-y-2">
+                <Label htmlFor="intervaloHorario" className="text-sm font-medium text-gray-700">
+                  ⏱️ Intervalo dos horários
+                </Label>
+                <Select
+                  value={intervaloHorario}
+                  onValueChange={handleIntervaloChange}
+                >
+                  <SelectTrigger id="intervaloHorario" className="w-full shadow-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="20">De 20 em 20 minutos</SelectItem>
+                    <SelectItem value="30">De 30 em 30 minutos</SelectItem>
+                    <SelectItem value="60">De hora em hora</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Horário — lista gerada conforme o intervalo escolhido acima */}
               <div className="space-y-2">
                 <Label htmlFor="horario" className="text-sm font-medium text-gray-700">
                   🕐 Horário
