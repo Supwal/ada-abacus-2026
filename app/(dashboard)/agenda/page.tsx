@@ -82,10 +82,12 @@ export default function ConsultaAgendaPage() {
   const [novoStatus, setNovoStatus] = useState<string>('');
   const [novoValor, setNovoValor] = useState<string>('');
   
-  // Estados para status da agenda (ABERTA/FECHADA)
-  const [agendaAberta, setAgendaAberta] = useState(true);
-  const [carregandoStatusAgenda, setCarregandoStatusAgenda] = useState(true);
-  
+  // Estados para consulta rápida de horários ocupados/disponíveis
+  const [dialogHorariosAberto, setDialogHorariosAberto] = useState(false);
+  const [dataHorarios, setDataHorarios] = useState('');
+  const [horariosOcupados, setHorariosOcupados] = useState<Map<string, string>>(new Map());
+  const [carregandoHorarios, setCarregandoHorarios] = useState(false);
+
   // Estados para disponibilidade
   const [disponibilidades, setDisponibilidades] = useState<any[]>([]);
   const [modalDisponibilidadeAberto, setModalDisponibilidadeAberto] = useState(false);
@@ -103,49 +105,59 @@ export default function ConsultaAgendaPage() {
     notificationChannel: 'whatsapp'
   });
 
-  // Função para carregar o status da agenda
-  const carregarStatusAgenda = async () => {
+  // Blocos de horário exibidos na consulta rápida (07:00 às 21:00)
+  const HORARIOS_CONSULTA = Array.from({ length: 15 }, (_, i) => `${String(i + 7).padStart(2, '0')}:00`);
+
+  // Busca os agendamentos de um dia e marca quais blocos de horário estão ocupados
+  const carregarHorariosOcupados = async (data: string) => {
+    if (!data) return;
+    setCarregandoHorarios(true);
     try {
-      setCarregandoStatusAgenda(true);
-      const response = await fetch('/api/agenda-status');
-      if (response.ok) {
-        const data = await response.json();
-        setAgendaAberta(data.isOpen);
+      const response = await fetch(`/api/appointments?startDate=${data}&endDate=${data}`);
+      if (!response.ok) {
+        setHorariosOcupados(new Map());
+        return;
       }
+      const agendamentosDoDia = await response.json();
+      const ocupados = new Map<string, string>();
+      for (const ag of agendamentosDoDia) {
+        if (!ag.startTime || !ag.endTime) continue;
+        const [hi, mi] = ag.startTime.split(':').map(Number);
+        const [hf, mf] = ag.endTime.split(':').map(Number);
+        const inicio = hi * 60 + mi;
+        const fim = hf * 60 + mf;
+        const nome = ag.clientName || ag.client?.name || 'Ocupado';
+        for (const h of HORARIOS_CONSULTA) {
+          const [hh, mm] = h.split(':').map(Number);
+          const blocoInicio = hh * 60 + mm;
+          const blocoFim = blocoInicio + 60;
+          if (blocoInicio < fim && blocoFim > inicio) {
+            ocupados.set(h, nome);
+          }
+        }
+      }
+      setHorariosOcupados(ocupados);
     } catch (error) {
-      console.error('Erro ao carregar status da agenda:', error);
+      console.error('Erro ao carregar horários:', error);
+      toast.error('Erro ao carregar horários');
     } finally {
-      setCarregandoStatusAgenda(false);
+      setCarregandoHorarios(false);
     }
   };
 
-  // Função para alternar o status da agenda (aberta/fechada)
-  const alternarStatusAgenda = async () => {
-    try {
-      const novoStatus = !agendaAberta;
-      const response = await fetch('/api/agenda-status', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ isOpen: novoStatus })
-      });
+  // Abre a consulta rápida já na data filtrada (ou hoje, se nenhuma estiver selecionada)
+  const abrirDialogHorarios = () => {
+    const hoje = new Date();
+    const dataPadrao = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`;
+    const data = formData.dataInicial || dataPadrao;
+    setDataHorarios(data);
+    setDialogHorariosAberto(true);
+    carregarHorariosOcupados(data);
+  };
 
-      if (response.ok) {
-        setAgendaAberta(novoStatus);
-        toast.success(
-          novoStatus 
-            ? '✅ Agenda aberta para novos agendamentos!' 
-            : '🔒 Agenda fechada para novos agendamentos!',
-          { duration: 2000 }
-        );
-      } else {
-        toast.error('Erro ao alterar status da agenda');
-      }
-    } catch (error) {
-      console.error('Erro ao alterar status da agenda:', error);
-      toast.error('Erro ao alterar status da agenda');
-    }
+  const handleDataHorariosChange = (novaData: string) => {
+    setDataHorarios(novaData);
+    carregarHorariosOcupados(novaData);
   };
 
   // Função para carregar locais
@@ -286,11 +298,10 @@ export default function ConsultaAgendaPage() {
     }));
   };
 
-  // Inicializar com o filtro do dia e carregar status da agenda, locais e disponibilidades
+  // Inicializar com o filtro do dia e carregar locais e disponibilidades
   useEffect(() => {
     criarDadosExemplo();
     aplicarFiltroPeriodo('dia');
-    carregarStatusAgenda();
     carregarLocais();
     carregarDisponibilidades();
   }, []);
@@ -563,40 +574,6 @@ export default function ConsultaAgendaPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50 p-3 md:p-6">
       <div className="max-w-5xl mx-auto">
-        {/* Badge de Status da Agenda - ABERTA/FECHADA */}
-        <div className="mb-6 flex justify-center">
-          <button
-            onClick={alternarStatusAgenda}
-            disabled={carregandoStatusAgenda}
-            className="flex items-center gap-3 px-6 py-3 rounded-full shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-offset-2"
-            style={{
-              background: agendaAberta 
-                ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' 
-                : 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)'
-            }}
-            title={agendaAberta ? 'Clique para fechar a agenda' : 'Clique para abrir a agenda'}
-          >
-            {/* Círculo Pulsante ou Estático */}
-            <div
-              className={cn(
-                "w-4 h-4 rounded-full",
-                agendaAberta
-                  ? "bg-white animate-pulse shadow-lg shadow-green-400"
-                  : "bg-white"
-              )}
-            />
-            
-            {/* Texto */}
-            <span className="font-bold text-white text-sm md:text-base tracking-wide">
-              {carregandoStatusAgenda
-                ? "Carregando..."
-                : agendaAberta
-                ? "✅ AGENDA ABERTA"
-                : "🔒 AGENDA FECHADA"}
-            </span>
-          </button>
-        </div>
-
         {/* Header */}
         <div className="mb-6">
           <Link href="/dashboard" className="text-gray-600 hover:text-gray-800 flex items-center gap-2 mb-4 transition-colors">
@@ -611,14 +588,21 @@ export default function ConsultaAgendaPage() {
           </p>
         </div>
 
-        {/* Botão Definir Disponibilidade */}
-        <div className="mb-6 flex justify-center">
+        {/* Botões Definir Disponibilidade e Ver Horários */}
+        <div className="mb-6 flex justify-center gap-3 flex-wrap">
           <Button
             onClick={() => setModalDisponibilidadeAberto(true)}
             className="bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white font-bold py-3 px-8 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 flex items-center gap-2"
           >
             <Plus className="h-5 w-5" />
             📅 Definir Disponibilidade
+          </Button>
+          <Button
+            onClick={abrirDialogHorarios}
+            className="bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 text-white font-bold py-3 px-8 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 flex items-center gap-2"
+          >
+            <Clock className="h-5 w-5" />
+            🕐 Ver Horários do Dia
           </Button>
         </div>
 
@@ -1267,6 +1251,74 @@ export default function ConsultaAgendaPage() {
               className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold shadow-lg"
             >
               💾 Salvar Alteração
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de Consulta Rápida — horários ocupados e disponíveis do dia */}
+      <Dialog open={dialogHorariosAberto} onOpenChange={setDialogHorariosAberto}>
+        <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="bg-teal-100 p-3 rounded-full">
+                <Clock className="h-6 w-6 text-teal-600" />
+              </div>
+              <DialogTitle className="text-2xl font-bold text-gray-900">
+                🕐 Horários do Dia
+              </DialogTitle>
+            </div>
+            <DialogDescription className="text-base text-gray-700 pt-2">
+              Veja rapidamente quais horários já estão ocupados
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-gray-700">📅 Data</Label>
+              <Input
+                type="date"
+                value={dataHorarios}
+                onChange={(e) => handleDataHorariosChange(e.target.value)}
+                className="shadow-sm"
+              />
+            </div>
+
+            {carregandoHorarios ? (
+              <p className="text-sm text-gray-500 text-center py-6">Carregando...</p>
+            ) : (
+              <div className="grid grid-cols-3 gap-2">
+                {HORARIOS_CONSULTA.map((h) => {
+                  const ocupadoPor = horariosOcupados.get(h);
+                  return (
+                    <div
+                      key={h}
+                      className={cn(
+                        "rounded-lg px-2 py-2 text-center border-2",
+                        ocupadoPor
+                          ? "bg-red-50 border-red-300 text-red-700"
+                          : "bg-green-50 border-green-300 text-green-700"
+                      )}
+                      title={ocupadoPor || 'Disponível'}
+                    >
+                      <div className="text-xs md:text-sm font-bold">{h}</div>
+                      <div className="text-[10px] md:text-xs font-medium truncate">
+                        {ocupadoPor ? `🔴 ${ocupadoPor}` : '🟢 Livre'}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDialogHorariosAberto(false)}
+              className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold border-2 border-gray-300"
+            >
+              Fechar
             </Button>
           </DialogFooter>
         </DialogContent>
