@@ -54,8 +54,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Criar disponibilidade
-    const availability = await prisma.availability.create({
+    // Criado sem `include` e buscado à parte: `create` + `include` juntos
+    // dispara uma transação implícita, que o adapter HTTP do Neon não suporta.
+    const criada = await prisma.availability.create({
       data: {
         userId,
         type,
@@ -69,6 +70,9 @@ export async function POST(request: NextRequest) {
         notificationChannel,
         currentAppointments: 0
       },
+    });
+    const availability = await prisma.availability.findUnique({
+      where: { id: criada.id },
       include: {
         location: {
           select: { id: true, name: true }

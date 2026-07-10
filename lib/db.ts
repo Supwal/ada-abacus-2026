@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client/edge'
+import { PrismaClient } from '@prisma/client'
 import { PrismaNeonHTTP } from '@prisma/adapter-neon'
 import { neon } from '@neondatabase/serverless'
 import { getOptionalRequestContext } from '@cloudflare/next-on-pages'

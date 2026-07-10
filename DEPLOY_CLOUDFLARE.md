@@ -202,8 +202,25 @@ ada_app_codigo/
 
 ## Troubleshooting
 
-**`PrismaClient is unable to run in this browser environment`**
-→ Verifique se `lib/db.ts` importa de `@prisma/client/edge` (não de `@prisma/client`).
+**`Prisma Client was configured to use the 'adapter' option but it was imported via its '/edge' endpoint`**
+→ `lib/db.ts` deve importar `PrismaClient` de `@prisma/client` (o pacote normal),
+**nunca** de `@prisma/client/edge`. O import `/edge` é só para quando se usa
+Prisma Accelerate (Data Proxy, `prisma://`) — é incompatível com passar um
+`adapter` (como `PrismaNeonHTTP`) no construtor, que é o que este projeto
+usa. Isso já foi corrigido uma vez (era a causa de todas as rotas com
+`makePrisma()` derrubarem com 500) — se voltar a acontecer, é sinal de que
+alguém reintroduziu o import `/edge`.
+
+**`Transactions are not supported in HTTP mode`**
+→ O adapter `PrismaNeonHTTP` (usado em `makePrisma()`) fala com o Neon via
+HTTP puro — sem conexão persistente, então não dá pra abrir uma transação.
+Qualquer `prisma.<model>.create()` (ou `update`/`upsert`) que também tenha
+um `include:` de relação dispara uma transação implícita internamente (o
+motor de query mais novo do Prisma faz isso para garantir consistência) e
+quebra com esse erro. **Correção**: separar em duas chamadas — `create()`
+sem `include`, depois um `findUnique({ where: { id }, include: {...} })`
+à parte. Veja `app/api/availabilities/route.ts`, `app/api/expenses/route.ts`
+e `app/api/earnings/route.ts` como referência do padrão já corrigido.
 
 **`NEXTAUTH_URL must be set` / falha de autenticação**
 → Confirme o valor de `NEXTAUTH_URL` em Settings → Variáveis e segredos.

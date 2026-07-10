@@ -74,7 +74,9 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { description, amount, date, categoryId } = body;
 
-    const expense = await prisma.expense.create({
+    // Criado sem `include` e buscado à parte: `create` + `include` juntos
+    // dispara uma transação implícita, que o adapter HTTP do Neon não suporta.
+    const criado = await prisma.expense.create({
       data: {
         description,
         amount: parseFloat(amount),
@@ -82,9 +84,10 @@ export async function POST(request: NextRequest) {
         userId: user.id,
         categoryId,
       },
-      include: {
-        category: true,
-      },
+    });
+    const expense = await prisma.expense.findUnique({
+      where: { id: criado.id },
+      include: { category: true },
     });
 
     return NextResponse.json(expense, { status: 201 });
