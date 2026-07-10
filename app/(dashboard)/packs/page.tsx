@@ -679,7 +679,6 @@ export default function PacksPage() {
                 ref={fileInputRef}
                 type="file"
                 accept="image/*"
-                capture="environment"
                 className="hidden"
                 onChange={handleImageUpload}
               />
