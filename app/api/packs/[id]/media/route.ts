@@ -69,7 +69,10 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     const file = formData.get('file');
     const type = formData.get('type');
 
-    if (!(file instanceof File)) {
+    // Não usar `instanceof File`: em dev (Node) a classe File do formData
+    // vem do undici e não bate com o global — a checagem robusta é "parte
+    // não-string do FormData" (string = campo de texto, objeto = arquivo).
+    if (!file || typeof file === 'string') {
       return NextResponse.json({ error: 'Arquivo não enviado' }, { status: 400 });
     }
     if (type !== 'photo' && type !== 'video') {
@@ -94,7 +97,17 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     const mediaId = `pmedia_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
     const r2Key = `packs/${userId}/${params.id}/${mediaId}`;
 
-    const bucket = getPacksBucket();
+    let bucket: R2Bucket;
+    try {
+      bucket = getPacksBucket();
+    } catch {
+      // Binding ausente = bucket R2 ainda não foi criado/conectado no painel
+      // do Cloudflare Pages. Mensagem clara para o profissional saber o que falta.
+      return NextResponse.json(
+        { error: 'Armazenamento de arquivos ainda não configurado no servidor. É preciso criar o bucket R2 "ada-abacus-packs" e conectar o binding PACKS_BUCKET no painel do Cloudflare (veja DEPLOY_CLOUDFLARE.md).' },
+        { status: 503 }
+      );
+    }
     await bucket.put(r2Key, file.stream(), {
       httpMetadata: { contentType: file.type },
     });

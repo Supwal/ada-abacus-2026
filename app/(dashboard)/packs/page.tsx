@@ -277,42 +277,50 @@ export default function PacksPage() {
   const MAX_FOTO_BYTES = 10 * 1024 * 1024; // 10MB — mesmo limite do servidor
   const MAX_VIDEO_BYTES = 45 * 1024 * 1024; // 45MB — mesmo limite do servidor
 
+  // Aceita vários arquivos de uma vez (input tem `multiple`) e envia um a um
   const handleUploadMidia = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !packParaGerenciarMidia) return;
+    const files = Array.from(e.target.files || []);
+    if (!files.length || !packParaGerenciarMidia) return;
     e.target.value = '';
 
-    const tipo: 'photo' | 'video' = file.type.startsWith('video/') ? 'video' : 'photo';
-    if (tipo === 'photo' && !file.type.startsWith('image/')) {
-      toast.error('Selecione uma imagem ou um vídeo.');
-      return;
-    }
-    const maxBytes = tipo === 'photo' ? MAX_FOTO_BYTES : MAX_VIDEO_BYTES;
-    if (file.size > maxBytes) {
-      toast.error(`Arquivo muito grande. Máximo ${Math.round(maxBytes / (1024 * 1024))}MB para ${tipo === 'photo' ? 'fotos' : 'vídeos'}.`);
-      return;
-    }
-
     setEnviandoMidia(true);
+    let enviados = 0;
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('type', tipo);
-      const response = await fetch(`/api/packs/${packParaGerenciarMidia.id}/media`, {
-        method: 'POST',
-        body: formData,
-      });
-      if (response.ok) {
-        toast.success('Arquivo enviado com sucesso!');
+      for (const file of files) {
+        const tipo: 'photo' | 'video' = file.type.startsWith('video/') ? 'video' : 'photo';
+        if (tipo === 'photo' && !file.type.startsWith('image/')) {
+          toast.error(`"${file.name}": selecione apenas imagens ou vídeos.`);
+          continue;
+        }
+        const maxBytes = tipo === 'photo' ? MAX_FOTO_BYTES : MAX_VIDEO_BYTES;
+        if (file.size > maxBytes) {
+          toast.error(`"${file.name}" é muito grande. Máximo ${Math.round(maxBytes / (1024 * 1024))}MB para ${tipo === 'photo' ? 'fotos' : 'vídeos'}.`);
+          continue;
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('type', tipo);
+        const response = await fetch(`/api/packs/${packParaGerenciarMidia.id}/media`, {
+          method: 'POST',
+          body: formData,
+        });
+        if (response.ok) {
+          enviados++;
+        } else {
+          const err = await response.json().catch(() => ({}));
+          toast.error(err.error || `Erro ao enviar "${file.name}"`);
+        }
+      }
+
+      if (enviados > 0) {
+        toast.success(`${enviados} arquivo(s) enviado(s) com sucesso!`);
         carregarMidias(packParaGerenciarMidia.id);
         carregarPacks();
-      } else {
-        const err = await response.json().catch(() => ({}));
-        toast.error(err.error || 'Erro ao enviar arquivo');
       }
     } catch (error) {
-      console.error('Erro ao enviar arquivo:', error);
-      toast.error('Erro ao enviar arquivo');
+      console.error('Erro ao enviar arquivos:', error);
+      toast.error('Erro ao enviar arquivos');
     } finally {
       setEnviandoMidia(false);
     }
@@ -880,8 +888,8 @@ export default function PacksPage() {
               ) : (
                 <>
                   <Upload className="h-6 w-6 text-purple-400" />
-                  <p className="text-sm font-semibold text-purple-600">Adicionar foto ou vídeo</p>
-                  <p className="text-xs text-gray-400">Fotos até 10MB • Vídeos até 45MB</p>
+                  <p className="text-sm font-semibold text-purple-600">Adicionar fotos ou vídeos</p>
+                  <p className="text-xs text-gray-400">Pode selecionar vários • Fotos até 10MB • Vídeos até 45MB</p>
                 </>
               )}
             </button>
@@ -889,6 +897,7 @@ export default function PacksPage() {
               ref={midiaFileInputRef}
               type="file"
               accept="image/*,video/*"
+              multiple
               className="hidden"
               onChange={handleUploadMidia}
             />
