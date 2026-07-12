@@ -77,6 +77,12 @@ export default function PacksPage() {
   const [uploadingImage, setUploadingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Fotos/vídeos reais escolhidos já no dialog de criar/editar pack —
+  // são enviados logo depois que o pack é salvo (precisa do id do pack)
+  const [arquivosNovoPack, setArquivosNovoPack] = useState<File[]>([]);
+  const novoPackFileInputRef = useRef<HTMLInputElement>(null);
+  const [salvandoPack, setSalvandoPack] = useState(false);
+
   // Carregar packs ao montar
   useEffect(() => {
     carregarPacks();
@@ -109,6 +115,7 @@ export default function PacksPage() {
       price: '',
       coverImage: '',
     });
+    setArquivosNovoPack([]);
     setModalAberto(true);
   };
 
@@ -121,6 +128,7 @@ export default function PacksPage() {
       price: pack.price.toString(),
       coverImage: pack.coverImage || '',
     });
+    setArquivosNovoPack([]);
     setModalAberto(true);
   };
 
@@ -131,6 +139,8 @@ export default function PacksPage() {
         return;
       }
 
+      setSalvandoPack(true);
+
       const dados = {
         name: formPack.name,
         photos: parseInt(formPack.photos),
@@ -138,6 +148,9 @@ export default function PacksPage() {
         price: parseFloat(formPack.price),
         coverImage: formPack.coverImage || null,
       };
+
+      // Guarda o id do pack salvo para enviar os arquivos escolhidos em seguida
+      let packSalvoId: string | null = null;
 
       if (packParaEditar) {
         // Editar pack existente
@@ -150,6 +163,7 @@ export default function PacksPage() {
         if (response.ok) {
           const packAtualizado = await response.json();
           setPacks(packs.map((p) => (p.id === packAtualizado.id ? packAtualizado : p)));
+          packSalvoId = packAtualizado.id;
           toast.success('Pack atualizado com sucesso!');
         } else {
           toast.error('Erro ao atualizar pack');
@@ -165,13 +179,25 @@ export default function PacksPage() {
         if (response.ok) {
           const novoPack = await response.json();
           setPacks([novoPack, ...packs]);
+          packSalvoId = novoPack.id;
           toast.success('Pack criado com sucesso!');
         } else {
           toast.error('Erro ao criar pack');
         }
       }
 
+      // Envia as fotos/vídeos escolhidos já no dialog (se houver)
+      if (packSalvoId && arquivosNovoPack.length > 0) {
+        toast(`📤 Enviando ${arquivosNovoPack.length} arquivo(s)...`);
+        const enviados = await enviarArquivosParaPack(packSalvoId, arquivosNovoPack);
+        if (enviados > 0) {
+          toast.success(`${enviados} arquivo(s) do pack enviado(s)!`);
+        }
+        carregarPacks();
+      }
+
       setModalAberto(false);
+      setArquivosNovoPack([]);
       setFormPack({
         name: '',
         photos: '',
@@ -182,6 +208,8 @@ export default function PacksPage() {
     } catch (error) {
       console.error('Erro ao salvar pack:', error);
       toast.error('Erro ao salvar pack');
+    } finally {
+      setSalvandoPack(false);
     }
   };
 
@@ -277,6 +305,39 @@ export default function PacksPage() {
   const MAX_FOTO_BYTES = 10 * 1024 * 1024; // 10MB — mesmo limite do servidor
   const MAX_VIDEO_BYTES = 45 * 1024 * 1024; // 45MB — mesmo limite do servidor
 
+  // Valida e envia uma lista de arquivos para um pack; devolve quantos subiram.
+  // Compartilhada entre o dialog de criar/editar e o "Gerenciar Arquivos".
+  const enviarArquivosParaPack = async (packId: string, files: File[]) => {
+    let enviados = 0;
+    for (const file of files) {
+      const tipo: 'photo' | 'video' = file.type.startsWith('video/') ? 'video' : 'photo';
+      if (tipo === 'photo' && !file.type.startsWith('image/')) {
+        toast.error(`"${file.name}": selecione apenas imagens ou vídeos.`);
+        continue;
+      }
+      const maxBytes = tipo === 'photo' ? MAX_FOTO_BYTES : MAX_VIDEO_BYTES;
+      if (file.size > maxBytes) {
+        toast.error(`"${file.name}" é muito grande. Máximo ${Math.round(maxBytes / (1024 * 1024))}MB para ${tipo === 'photo' ? 'fotos' : 'vídeos'}.`);
+        continue;
+      }
+
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('type', tipo);
+      const response = await fetch(`/api/packs/${packId}/media`, {
+        method: 'POST',
+        body: formData,
+      });
+      if (response.ok) {
+        enviados++;
+      } else {
+        const err = await response.json().catch(() => ({}));
+        toast.error(err.error || `Erro ao enviar "${file.name}"`);
+      }
+    }
+    return enviados;
+  };
+
   // Aceita vários arquivos de uma vez (input tem `multiple`) e envia um a um
   const handleUploadMidia = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -284,35 +345,8 @@ export default function PacksPage() {
     e.target.value = '';
 
     setEnviandoMidia(true);
-    let enviados = 0;
     try {
-      for (const file of files) {
-        const tipo: 'photo' | 'video' = file.type.startsWith('video/') ? 'video' : 'photo';
-        if (tipo === 'photo' && !file.type.startsWith('image/')) {
-          toast.error(`"${file.name}": selecione apenas imagens ou vídeos.`);
-          continue;
-        }
-        const maxBytes = tipo === 'photo' ? MAX_FOTO_BYTES : MAX_VIDEO_BYTES;
-        if (file.size > maxBytes) {
-          toast.error(`"${file.name}" é muito grande. Máximo ${Math.round(maxBytes / (1024 * 1024))}MB para ${tipo === 'photo' ? 'fotos' : 'vídeos'}.`);
-          continue;
-        }
-
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('type', tipo);
-        const response = await fetch(`/api/packs/${packParaGerenciarMidia.id}/media`, {
-          method: 'POST',
-          body: formData,
-        });
-        if (response.ok) {
-          enviados++;
-        } else {
-          const err = await response.json().catch(() => ({}));
-          toast.error(err.error || `Erro ao enviar "${file.name}"`);
-        }
-      }
-
+      const enviados = await enviarArquivosParaPack(packParaGerenciarMidia.id, files);
       if (enviados > 0) {
         toast.success(`${enviados} arquivo(s) enviado(s) com sucesso!`);
         carregarMidias(packParaGerenciarMidia.id);
@@ -691,6 +725,61 @@ export default function PacksPage() {
                 onChange={handleImageUpload}
               />
             </div>
+
+            {/* Fotos e vídeos do pack — conteúdo real vendido ao cliente */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-gray-700">
+                📸 Fotos e vídeos do pack (opcional)
+              </Label>
+              <button
+                type="button"
+                onClick={() => novoPackFileInputRef.current?.click()}
+                disabled={salvandoPack}
+                className="w-full h-20 border-2 border-dashed border-purple-300 rounded-xl flex flex-col items-center justify-center gap-1 hover:border-purple-500 hover:bg-purple-50 transition-all cursor-pointer disabled:opacity-60"
+              >
+                <Upload className="h-6 w-6 text-purple-400" />
+                <p className="text-sm font-semibold text-purple-600">
+                  {arquivosNovoPack.length > 0
+                    ? `${arquivosNovoPack.length} arquivo(s) selecionado(s) — toque para adicionar mais`
+                    : 'Selecionar fotos e vídeos (vários de uma vez)'}
+                </p>
+              </button>
+              <input
+                ref={novoPackFileInputRef}
+                type="file"
+                accept="image/*,video/*"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  const novos = Array.from(e.target.files || []);
+                  if (novos.length) setArquivosNovoPack((prev) => [...prev, ...novos]);
+                  e.target.value = '';
+                }}
+              />
+              {arquivosNovoPack.length > 0 && (
+                <div className="space-y-1 max-h-32 overflow-y-auto">
+                  {arquivosNovoPack.map((f, i) => (
+                    <div
+                      key={`${f.name}-${i}`}
+                      className="flex items-center justify-between gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 text-xs text-gray-700"
+                    >
+                      <span className="truncate">{f.type.startsWith('video/') ? '🎬' : '📷'} {f.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => setArquivosNovoPack((prev) => prev.filter((_, j) => j !== i))}
+                        className="text-red-500 hover:text-red-700 shrink-0"
+                        title="Remover da lista"
+                      >
+                        <XIcon className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <p className="text-xs text-gray-400">
+                Os arquivos são enviados quando você salvar o pack. Depois também dá para adicionar/remover em "Gerenciar Arquivos".
+              </p>
+            </div>
           </div>
 
           {/* Botões */}
@@ -704,9 +793,10 @@ export default function PacksPage() {
             </Button>
             <Button
               onClick={salvarPack}
-              className="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-semibold shadow-lg"
+              disabled={salvandoPack}
+              className="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-semibold shadow-lg disabled:opacity-60"
             >
-              💾 {packParaEditar ? 'Atualizar' : 'Criar'} Pack
+              {salvandoPack ? '⏳ Salvando...' : `💾 ${packParaEditar ? 'Atualizar' : 'Criar'} Pack`}
             </Button>
           </DialogFooter>
         </DialogContent>
