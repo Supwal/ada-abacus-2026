@@ -2,7 +2,6 @@ export const runtime = 'edge'
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getSession } from '@/lib/db';
-import { getPacksBucket } from '@/lib/r2';
 
 export const dynamic = 'force-dynamic';
 
@@ -96,31 +95,13 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     const userId = await resolveUserId(sql, session.email as string);
     if (!userId) return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
 
-    // Busca as chaves do R2 antes de apagar (o cascade do Postgres apaga as
-    // linhas de pack_media junto com o pack, então precisa ser antes).
-    const media = await sql`
-      SELECT pm.r2_key as "r2Key"
-      FROM pack_media pm
-      JOIN packs p ON p.id = pm.pack_id
-      WHERE pm.pack_id = ${params.id} AND p.user_id = ${userId}
-    `;
-
+    // O cascade do Postgres apaga as linhas de pack_media (e o conteúdo em
+    // base64 junto) automaticamente ao apagar o pack.
     const rows = await sql`
       DELETE FROM packs WHERE id = ${params.id} AND user_id = ${userId}
       RETURNING id
     `;
     if (!rows.length) return NextResponse.json({ error: 'Não encontrado' }, { status: 404 });
-
-    if (media.length) {
-      try {
-        const bucket = getPacksBucket();
-        await bucket.delete(media.map((m: any) => m.r2Key as string));
-      } catch (r2Error) {
-        // Pack já foi apagado do banco — um resíduo no R2 é só custo de
-        // armazenamento, não deve impedir a resposta de sucesso ao usuário.
-        console.error('Erro ao limpar arquivos do R2 (pack já excluído):', r2Error);
-      }
-    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

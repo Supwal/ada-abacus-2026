@@ -2,15 +2,25 @@ export const runtime = 'edge'
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getSession } from '@/lib/db';
-import { getPacksBucket } from '@/lib/r2';
 
 export const dynamic = 'force-dynamic';
 
-// Limites bem abaixo do limite de corpo de requisição da Cloudflare
-// (100MB no plano atual) — margem de sobra para não estourar em uploads
-// concorrentes que dividem o mesmo limite de memória do isolate.
-const MAX_PHOTO_BYTES = 10 * 1024 * 1024; // 10MB
-const MAX_VIDEO_BYTES = 45 * 1024 * 1024; // 45MB
+// Os arquivos são guardados no próprio banco (base64), então os limites são
+// mais conservadores que o teto de 100MB da Cloudflare: base64 infla ~33% e
+// cada arquivo ocupa espaço no banco Neon. Fotos até 8MB, vídeos até 30MB.
+const MAX_PHOTO_BYTES = 8 * 1024 * 1024;  // 8MB
+const MAX_VIDEO_BYTES = 30 * 1024 * 1024; // 30MB
+
+// Converte bytes -> base64 em pedaços (evita estourar a pilha em arquivos
+// grandes, o que aconteceria com String.fromCharCode(...bytes) de uma vez).
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = '';
+  const chunk = 0x8000; // 32KB por vez
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
 
 async function resolveUserId(sql: ReturnType<typeof getDb>, email: string): Promise<string | null> {
   const users = await sql`SELECT id FROM users WHERE email = ${email} LIMIT 1`;
@@ -95,36 +105,18 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     }
 
     const mediaId = `pmedia_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-    const r2Key = `packs/${userId}/${params.id}/${mediaId}`;
 
-    let bucket: R2Bucket;
-    try {
-      bucket = getPacksBucket();
-    } catch {
-      // Binding ausente = bucket R2 ainda não foi criado/conectado no painel
-      // do Cloudflare Pages. Mensagem clara para o profissional saber o que falta.
-      return NextResponse.json(
-        { error: 'Armazenamento de arquivos ainda não configurado no servidor. É preciso criar o bucket R2 "ada-abacus-packs" e conectar o binding PACKS_BUCKET no painel do Cloudflare (veja DEPLOY_CLOUDFLARE.md).' },
-        { status: 503 }
-      );
-    }
-    await bucket.put(r2Key, file.stream(), {
-      httpMetadata: { contentType: file.type },
-    });
+    // Lê o arquivo e guarda o conteúdo em base64 direto no banco.
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const base64 = bytesToBase64(bytes);
 
-    try {
-      const rows = await sql`
-        INSERT INTO pack_media (id, pack_id, type, r2_key, mime_type, size_bytes, order_index, created_at)
-        VALUES (${mediaId}, ${params.id}, ${type}, ${r2Key}, ${file.type}, ${file.size}, 0, NOW())
-        RETURNING id, type, mime_type as "mimeType", size_bytes as "sizeBytes",
-                  order_index as "orderIndex", created_at as "createdAt"
-      `;
-      return NextResponse.json(rows[0], { status: 201 });
-    } catch (dbError) {
-      // Insert falhou — tenta não deixar objeto órfão no bucket.
-      try { await bucket.delete(r2Key); } catch {}
-      throw dbError;
-    }
+    const rows = await sql`
+      INSERT INTO pack_media (id, pack_id, type, data, mime_type, size_bytes, order_index, created_at)
+      VALUES (${mediaId}, ${params.id}, ${type}, ${base64}, ${file.type}, ${file.size}, 0, NOW())
+      RETURNING id, type, mime_type as "mimeType", size_bytes as "sizeBytes",
+                order_index as "orderIndex", created_at as "createdAt"
+    `;
+    return NextResponse.json(rows[0], { status: 201 });
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     console.error('Erro ao enviar arquivo do pack:', msg);

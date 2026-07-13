@@ -2,7 +2,6 @@ export const runtime = 'edge'
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
-import { getPacksBucket } from '@/lib/r2';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,9 +29,17 @@ function parseRange(header: string | null, size: number): { offset: number; leng
   return { offset: start, length: end - start + 1 };
 }
 
+// Decodifica base64 -> bytes.
+function base64ToBytes(base64: string): Uint8Array {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
 // Rota PÚBLICA (sem sessão) — só entrega o arquivo se o mediaId pertencer
-// a um pack cujo share_token bata com o da URL. Bucket R2 continua privado;
-// esta rota é o único caminho de acesso aos bytes.
+// a um pack cujo share_token bata com o da URL. O conteúdo fica em base64
+// no banco; esta rota decodifica e devolve os bytes.
 export async function GET(
   request: NextRequest,
   { params }: { params: { token: string; mediaId: string } }
@@ -40,7 +47,7 @@ export async function GET(
   try {
     const sql = getDb();
     const rows = await sql`
-      SELECT pm.r2_key as "r2Key", pm.mime_type as "mimeType", pm.size_bytes as "sizeBytes"
+      SELECT pm.data, pm.mime_type as "mimeType"
       FROM pack_media pm
       JOIN packs p ON p.id = pm.pack_id
       WHERE pm.id = ${params.mediaId} AND p.share_token = ${params.token}
@@ -48,33 +55,32 @@ export async function GET(
     `;
     if (!rows.length) return NextResponse.json({ error: 'Não encontrado' }, { status: 404 });
 
-    const { r2Key, mimeType, sizeBytes } = rows[0] as { r2Key: string; mimeType: string; sizeBytes: number };
+    const { data, mimeType } = rows[0] as { data: string | null; mimeType: string };
+    if (!data) return NextResponse.json({ error: 'Arquivo não encontrado' }, { status: 404 });
 
-    const range = parseRange(request.headers.get('range'), sizeBytes);
-    const bucket = getPacksBucket();
-    const object = await bucket.get(r2Key, range ? { range } : undefined);
-    if (!object) return NextResponse.json({ error: 'Arquivo não encontrado' }, { status: 404 });
+    const fullBytes = base64ToBytes(data);
+    const sizeBytes = fullBytes.length;
 
     const headers = new Headers();
     headers.set('Content-Type', mimeType);
     headers.set('Accept-Ranges', 'bytes');
     headers.set('Cache-Control', 'private, no-store');
-    headers.set('ETag', object.httpEtag);
 
     if (request.nextUrl.searchParams.get('download')) {
       const ext = mimeType.split('/')[1] || 'bin';
       headers.set('Content-Disposition', `attachment; filename="arquivo.${ext}"`);
     }
 
-    if (range && object.range) {
-      const { offset, length } = object.range;
-      headers.set('Content-Range', `bytes ${offset}-${offset + length - 1}/${sizeBytes}`);
-      headers.set('Content-Length', String(length));
-      return new Response(object.body, { status: 206, headers });
+    const range = parseRange(request.headers.get('range'), sizeBytes);
+    if (range) {
+      const slice = fullBytes.slice(range.offset, range.offset + range.length);
+      headers.set('Content-Range', `bytes ${range.offset}-${range.offset + range.length - 1}/${sizeBytes}`);
+      headers.set('Content-Length', String(range.length));
+      return new Response(new Blob([slice.buffer as ArrayBuffer], { type: mimeType }), { status: 206, headers });
     }
 
     headers.set('Content-Length', String(sizeBytes));
-    return new Response(object.body, { status: 200, headers });
+    return new Response(new Blob([fullBytes.buffer as ArrayBuffer], { type: mimeType }), { status: 200, headers });
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     console.error('Erro ao servir arquivo público do pack:', msg);

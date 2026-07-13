@@ -2,7 +2,6 @@ export const runtime = 'edge'
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb, getSession } from '@/lib/db';
-import { getPacksBucket } from '@/lib/r2';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,12 +26,9 @@ export async function DELETE(
         AND pack_media.pack_id = ${params.id}
         AND pack_media.pack_id = packs.id
         AND packs.user_id = ${userId}
-      RETURNING pack_media.r2_key as "r2Key"
+      RETURNING pack_media.id
     `;
     if (!rows.length) return NextResponse.json({ error: 'Não encontrado' }, { status: 404 });
-
-    const bucket = getPacksBucket();
-    await bucket.delete(rows[0].r2Key as string);
 
     return NextResponse.json({ success: true });
   } catch (error) {

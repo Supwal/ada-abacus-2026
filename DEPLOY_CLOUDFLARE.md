@@ -71,67 +71,28 @@ painel resolvem.
 
 ---
 
-## Armazenamento de arquivos (R2) — entrega de Packs
+## Armazenamento de arquivos dos Packs — no próprio banco (base64)
 
-Os arquivos reais (fotos/vídeos) de cada Pack ficam num bucket R2 privado
-(`ada-abacus-packs`), acessado pelo binding `PACKS_BUCKET` (ver `lib/r2.ts`).
+> **Não precisa mais de Cloudflare R2.** As fotos/vídeos de cada Pack são
+> guardadas em base64 direto na tabela `pack_media` (coluna `data`) do
+> banco Neon — mesmo mecanismo da imagem de capa. Nenhuma configuração de
+> bucket/binding no painel é necessária; funciona assim que o deploy sobe.
+>
+> **Limites** (mais conservadores porque ocupam espaço no banco): fotos até
+> **8MB**, vídeos até **30MB**. O plano gratuito do Neon tem ~0,5 GB — para
+> muito volume de vídeo, migrar para R2 (ou outro storage de objetos) seria
+> o próximo passo. A rota `app/api/p/[token]/media/[mediaId]/route.ts`
+> decodifica o base64 e serve com suporte a Range (vídeo no iOS).
 
-> ⚠️ **Ordem importa**: crie o bucket ANTES de declarar o binding em
-> qualquer lugar (dashboard ou `wrangler.toml`). Referenciar um bucket R2
-> que ainda não existe derruba o deploy inteiro (aparece como "Nenhuma
-> implantação disponível", sem log de build claro) — foi o que aconteceu
-> quando esse binding foi commitado no `wrangler.toml` antes do bucket
-> existir. Por isso o `wrangler.toml` deste repositório **não** declara
-> `[[r2_buckets]]` — só tem o exemplo comentado.
+<details>
+<summary>Histórico: a tentativa anterior com R2 (mantida só como referência)</summary>
 
-### Passo a passo no painel (labels em pt-BR, na ordem certa)
+Os arquivos ficavam num bucket R2 privado (`ada-abacus-packs`), acessado
+pelo binding `PACKS_BUCKET`. Isso foi abandonado porque exigia um passo
+manual no painel do Cloudflare (criar bucket + binding + ativar R2 com
+cartão) que travava o uso. O código de storage em banco substituiu tudo.
 
-> Enquanto estes 3 passos não forem feitos, TODO upload de foto/vídeo do
-> pack devolve o erro **"Armazenamento de arquivos ainda não configurado
-> no servidor"** (503), e o link do cliente abre vazio ("Nenhum arquivo
-> disponível ainda neste link"). Não é bug de código — é este passo manual
-> que falta. O código já está pronto e publicado esperando só isto.
-
-**Parte 1 — Criar o bucket (o "armário" das fotos):**
-1. Entre em [dash.cloudflare.com](https://dash.cloudflare.com) com a conta
-   **mobyapps**.
-2. Menu da esquerda → **R2** (aparece como "Armazenamento de objetos R2").
-   - ⚠️ Na primeira vez o Cloudflare pede para **ativar o R2** e cadastrar
-     um cartão. O plano gratuito dá 10 GB sem cobrança — o cartão é só
-     verificação. Sem ativar o R2, o resto não funciona.
-3. **Criar bucket** (Create bucket).
-4. Nome, exatamente: `ada-abacus-packs` (tudo minúsculo, com hífens).
-5. **Criar**.
-
-**Parte 2 — Conectar o bucket ao app (binding):**
-1. Menu da esquerda → **Trabalhadores e Páginas** (Workers & Pages).
-2. Abra o projeto **ada-abacus-2026**.
-3. Aba **Configurações** (Settings).
-4. Seção **Encadeamentos** (Bindings) — é a mesma tela onde ficam as
-   "Variáveis e segredos", logo abaixo.
-5. **+ Adicionar** → tipo **Bucket R2** (R2 bucket).
-6. Nome da variável, exatamente: `PACKS_BUCKET` (tudo MAIÚSCULO).
-7. Bucket: selecione `ada-abacus-packs`.
-8. **Salvar**. Faça isso no ambiente de **Produção** (repita em Preview se
-   quiser testar em PRs).
-
-> Produção usa **só** o binding do painel — o `wrangler.toml` não é lido
-> para bindings quando o deploy é via integração Git.
-
-**Parte 3 — Reativar (obrigatório):** o binding só passa a valer num deploy
-NOVO. Aba **Implantações** → nos `...` do deploy mais recente → **Repetir
-implantação** (Retry deployment). Ou dê um `git push` de qualquer commit.
-
-**Como saber se funcionou:** entre em Packs → um pack → **Gerenciar
-Arquivos** → envie uma foto. Se aparecer na lista (em vez do erro de
-armazenamento), está tudo certo — e o link do cliente já mostra as fotos.
-
-- **Local**: `npm run dev` (Node puro) **não tem acesso a bindings R2** —
-  upload de arquivo vai falhar com "binding não disponível". Pra testar de
-  verdade localmente, depois de criar o bucket: descomente o bloco
-  `[[r2_buckets]]` no `wrangler.toml` e rode `next build && npx
-  @cloudflare/next-on-pages && npx wrangler pages dev
-  .vercel/output/static`.
+</details>
 
 ## Banco de dados
 

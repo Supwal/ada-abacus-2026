@@ -302,8 +302,8 @@ export default function PacksPage() {
     }
   };
 
-  const MAX_FOTO_BYTES = 10 * 1024 * 1024; // 10MB — mesmo limite do servidor
-  const MAX_VIDEO_BYTES = 45 * 1024 * 1024; // 45MB — mesmo limite do servidor
+  const MAX_FOTO_BYTES = 8 * 1024 * 1024;  // 8MB — mesmo limite do servidor
+  const MAX_VIDEO_BYTES = 30 * 1024 * 1024; // 30MB — mesmo limite do servidor
 
   // Valida e envia uma lista de arquivos para um pack; devolve quantos subiram.
   // Compartilhada entre o dialog de criar/editar e o "Gerenciar Arquivos".
@@ -979,7 +979,7 @@ export default function PacksPage() {
                 <>
                   <Upload className="h-6 w-6 text-purple-400" />
                   <p className="text-sm font-semibold text-purple-600">Adicionar fotos ou vídeos</p>
-                  <p className="text-xs text-gray-400">Pode selecionar vários • Fotos até 10MB • Vídeos até 45MB</p>
+                  <p className="text-xs text-gray-400">Pode selecionar vários • Fotos até 8MB • Vídeos até 30MB</p>
                 </>
               )}
             </button>
