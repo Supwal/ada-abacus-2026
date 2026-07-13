@@ -84,17 +84,47 @@ Os arquivos reais (fotos/vídeos) de cada Pack ficam num bucket R2 privado
 > existir. Por isso o `wrangler.toml` deste repositório **não** declara
 > `[[r2_buckets]]` — só tem o exemplo comentado.
 
-**Passo a passo, nessa ordem:**
-1. Cloudflare dashboard → **R2** → **Create bucket** → nome
-   `ada-abacus-packs`.
-2. Só depois do bucket existir: Workers & Pages → `ada-abacus-2026` →
-   **Settings** → **Bindings** → **Add** → R2 bucket → variável
-   `PACKS_BUCKET` → bucket `ada-abacus-packs`. (Produção usa **só** o
-   binding do painel — o `wrangler.toml` não é lido para bindings em
-   deploy via integração Git.)
-3. Se o deploy mais recente tiver falhado por causa disso, dispare um novo
-   deploy depois (ex.: `git push` de um commit vazio, ou "Retry
-   deployment" no painel).
+### Passo a passo no painel (labels em pt-BR, na ordem certa)
+
+> Enquanto estes 3 passos não forem feitos, TODO upload de foto/vídeo do
+> pack devolve o erro **"Armazenamento de arquivos ainda não configurado
+> no servidor"** (503), e o link do cliente abre vazio ("Nenhum arquivo
+> disponível ainda neste link"). Não é bug de código — é este passo manual
+> que falta. O código já está pronto e publicado esperando só isto.
+
+**Parte 1 — Criar o bucket (o "armário" das fotos):**
+1. Entre em [dash.cloudflare.com](https://dash.cloudflare.com) com a conta
+   **mobyapps**.
+2. Menu da esquerda → **R2** (aparece como "Armazenamento de objetos R2").
+   - ⚠️ Na primeira vez o Cloudflare pede para **ativar o R2** e cadastrar
+     um cartão. O plano gratuito dá 10 GB sem cobrança — o cartão é só
+     verificação. Sem ativar o R2, o resto não funciona.
+3. **Criar bucket** (Create bucket).
+4. Nome, exatamente: `ada-abacus-packs` (tudo minúsculo, com hífens).
+5. **Criar**.
+
+**Parte 2 — Conectar o bucket ao app (binding):**
+1. Menu da esquerda → **Trabalhadores e Páginas** (Workers & Pages).
+2. Abra o projeto **ada-abacus-2026**.
+3. Aba **Configurações** (Settings).
+4. Seção **Encadeamentos** (Bindings) — é a mesma tela onde ficam as
+   "Variáveis e segredos", logo abaixo.
+5. **+ Adicionar** → tipo **Bucket R2** (R2 bucket).
+6. Nome da variável, exatamente: `PACKS_BUCKET` (tudo MAIÚSCULO).
+7. Bucket: selecione `ada-abacus-packs`.
+8. **Salvar**. Faça isso no ambiente de **Produção** (repita em Preview se
+   quiser testar em PRs).
+
+> Produção usa **só** o binding do painel — o `wrangler.toml` não é lido
+> para bindings quando o deploy é via integração Git.
+
+**Parte 3 — Reativar (obrigatório):** o binding só passa a valer num deploy
+NOVO. Aba **Implantações** → nos `...` do deploy mais recente → **Repetir
+implantação** (Retry deployment). Ou dê um `git push` de qualquer commit.
+
+**Como saber se funcionou:** entre em Packs → um pack → **Gerenciar
+Arquivos** → envie uma foto. Se aparecer na lista (em vez do erro de
+armazenamento), está tudo certo — e o link do cliente já mostra as fotos.
 
 - **Local**: `npm run dev` (Node puro) **não tem acesso a bindings R2** —
   upload de arquivo vai falhar com "binding não disponível". Pra testar de
