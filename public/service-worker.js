@@ -1,8 +1,8 @@
 
-// Service Worker for ADA APP PWA - v5.1
-const CACHE_NAME = 'ada-app-v5.1';
-const RUNTIME_CACHE = 'ada-runtime-v5.1';
-const IMAGE_CACHE = 'ada-images-v5.1';
+// Service Worker for ADA APP PWA - v5.2
+const CACHE_NAME = 'ada-app-v5.2';
+const RUNTIME_CACHE = 'ada-runtime-v5.2';
+const IMAGE_CACHE = 'ada-images-v5.2';
 
 // Assets to cache on install.
 // IMPORTANTE: NÃO pré-cachear rotas HTML (/dashboard, /agenda, ...). O HTML

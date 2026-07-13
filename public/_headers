@@ -8,9 +8,18 @@
   X-XSS-Protection: 1; mode=block
   Referrer-Policy: strict-origin-when-cross-origin
 
-  # PWA caching
+  # Padrão: NÃO cachear como immutable. As páginas (HTML) precisam revalidar
+  # a cada deploy, senão o navegador serve a versão antiga até um refresh
+  # forçado. `must-revalidate` faz o navegador sempre checar o servidor.
+  Cache-Control: public, max-age=0, must-revalidate
+
+# Assets do Next.js têm hash no nome (imutáveis de verdade) — pode cachear
+# por muito tempo sem risco de servir versão velha.
+/_next/static/*
   Cache-Control: public, max-age=31536000, immutable
 
+# O próprio service worker nunca pode ser cacheado, senão a atualização
+# do app nunca é detectada.
 /service-worker.js
   Cache-Control: public, max-age=0, must-revalidate
 

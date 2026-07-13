@@ -90,6 +90,16 @@ export default function RootLayout({
                 navigator.serviceWorker.register('/service-worker.js').then(
                   function(registration) {
                     console.log('Service Worker registration successful:', registration.scope);
+                    // Checa se há versão nova assim que registra...
+                    registration.update();
+                    // ...toda vez que o app volta ao primeiro plano...
+                    document.addEventListener('visibilitychange', function() {
+                      if (document.visibilityState === 'visible') {
+                        registration.update();
+                      }
+                    });
+                    // ...e periodicamente enquanto aberto (a cada 60s).
+                    setInterval(function() { registration.update(); }, 60000);
                   },
                   function(err) {
                     console.log('Service Worker registration failed:', err);

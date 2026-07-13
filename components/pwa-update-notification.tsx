@@ -29,8 +29,12 @@ export function PWAUpdateNotification() {
         });
       });
 
-      // Listen for controller change (update activated)
+      // Listen for controller change (update activated). Guarda contra
+      // recarregar mais de uma vez (evita loop de reload).
+      let recarregando = false;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (recarregando) return;
+        recarregando = true;
         console.log('[PWA] Nova versão ativada, recarregando...');
         window.location.reload();
       });

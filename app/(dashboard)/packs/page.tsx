@@ -608,7 +608,7 @@ export default function PacksPage() {
 
       {/* Modal de Criar/Editar Pack */}
       <Dialog open={modalAberto} onOpenChange={setModalAberto}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <div className="flex items-center gap-3 mb-2">
               <div className="bg-purple-100 p-3 rounded-full">
