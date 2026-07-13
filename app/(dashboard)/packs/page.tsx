@@ -608,8 +608,8 @@ export default function PacksPage() {
 
       {/* Modal de Criar/Editar Pack */}
       <Dialog open={modalAberto} onOpenChange={setModalAberto}>
-        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="max-w-md max-h-[90dvh] flex flex-col">
+          <DialogHeader className="shrink-0">
             <div className="flex items-center gap-3 mb-2">
               <div className="bg-purple-100 p-3 rounded-full">
                 <Plus className="h-6 w-6 text-purple-600" />
@@ -625,8 +625,8 @@ export default function PacksPage() {
             </DialogDescription>
           </DialogHeader>
 
-          {/* Formulário */}
-          <div className="space-y-4 py-4">
+          {/* Formulário — miolo rolável (header e footer ficam fixos) */}
+          <div className="space-y-4 py-4 overflow-y-auto flex-1 min-h-0">
             {/* Nome */}
             <div className="space-y-2">
               <Label className="text-sm font-medium text-gray-700">Nome do Pack</Label>
@@ -782,8 +782,8 @@ export default function PacksPage() {
             </div>
           </div>
 
-          {/* Botões */}
-          <DialogFooter className="gap-2 sm:gap-2">
+          {/* Botões — footer fixo, sempre visível */}
+          <DialogFooter className="gap-2 sm:gap-2 shrink-0 pt-2 border-t border-gray-100">
             <Button
               variant="outline"
               onClick={() => setModalAberto(false)}
@@ -851,8 +851,8 @@ export default function PacksPage() {
 
       {/* Dialog de Venda — enviar o pack ao cliente */}
       <Dialog open={dialogVenderAberto} onOpenChange={setDialogVenderAberto}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
+        <DialogContent className="max-w-md max-h-[90dvh] flex flex-col">
+          <DialogHeader className="shrink-0">
             <div className="flex items-center gap-3 mb-2">
               <div className="bg-green-100 p-3 rounded-full">
                 <Send className="h-6 w-6 text-green-600" />
@@ -867,7 +867,7 @@ export default function PacksPage() {
           </DialogHeader>
 
           {packParaVender && (
-            <div className="space-y-4 py-2">
+            <div className="space-y-4 py-2 overflow-y-auto flex-1 min-h-0">
               {(packParaVender.mediaCount || 0) === 0 && (
                 <div className="bg-amber-50 border border-amber-300 text-amber-800 px-3 py-2 rounded-md text-sm flex items-start gap-2">
                   <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
@@ -913,7 +913,7 @@ export default function PacksPage() {
             </div>
           )}
 
-          <DialogFooter className="flex-col gap-2 sm:flex-col sm:gap-2">
+          <DialogFooter className="flex-col gap-2 sm:flex-col sm:gap-2 shrink-0 pt-2 border-t border-gray-100">
             <Button
               onClick={compartilharWhatsApp}
               disabled={carregandoShare}
@@ -948,8 +948,8 @@ export default function PacksPage() {
 
       {/* Dialog de Gerenciar Arquivos — upload real de fotos/vídeos do pack */}
       <Dialog open={dialogMidiaAberto} onOpenChange={setDialogMidiaAberto}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
+        <DialogContent className="max-w-md max-h-[90dvh] flex flex-col">
+          <DialogHeader className="shrink-0">
             <div className="flex items-center gap-3 mb-2">
               <div className="bg-purple-100 p-3 rounded-full">
                 <FolderOpen className="h-6 w-6 text-purple-600" />
@@ -963,7 +963,7 @@ export default function PacksPage() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-3 py-2">
+          <div className="space-y-3 py-2 overflow-y-auto flex-1 min-h-0">
             <button
               type="button"
               onClick={() => midiaFileInputRef.current?.click()}
@@ -997,7 +997,7 @@ export default function PacksPage() {
             ) : midias.length === 0 ? (
               <p className="text-sm text-gray-400 text-center py-4">Nenhum arquivo enviado ainda.</p>
             ) : (
-              <div className="space-y-2 max-h-64 overflow-y-auto">
+              <div className="space-y-2">
                 {midias.map((m) => (
                   <div
                     key={m.id}
@@ -1025,7 +1025,7 @@ export default function PacksPage() {
             )}
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="shrink-0 pt-2 border-t border-gray-100">
             <Button
               variant="outline"
               onClick={() => setDialogMidiaAberto(false)}
