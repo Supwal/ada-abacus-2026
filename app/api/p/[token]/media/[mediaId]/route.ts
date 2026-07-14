@@ -46,8 +46,12 @@ export async function GET(
 ) {
   try {
     const sql = getDb();
+    // Expiração da amostra calculada no SQL (UTC) para evitar problema de fuso.
     const rows = await sql`
-      SELECT pm.data, pm.mime_type as "mimeType"
+      SELECT pm.data, pm.mime_type as "mimeType",
+             CASE WHEN p.preview_minutes IS NOT NULL AND p.preview_started_at IS NOT NULL
+                  THEN (NOW() > p.preview_started_at + p.preview_minutes * interval '1 minute')
+                  ELSE false END as "expired"
       FROM pack_media pm
       JOIN packs p ON p.id = pm.pack_id
       WHERE pm.id = ${params.mediaId} AND p.share_token = ${params.token}
@@ -55,7 +59,11 @@ export async function GET(
     `;
     if (!rows.length) return NextResponse.json({ error: 'Não encontrado' }, { status: 404 });
 
-    const { data, mimeType } = rows[0] as { data: string | null; mimeType: string };
+    const { data, mimeType, expired } = rows[0] as {
+      data: string | null; mimeType: string; expired: boolean;
+    };
+    // Amostra expirada — não serve mais o arquivo.
+    if (expired) return NextResponse.json({ error: 'Amostra expirada' }, { status: 410 });
     if (!data) return NextResponse.json({ error: 'Arquivo não encontrado' }, { status: 404 });
 
     const fullBytes = base64ToBytes(data);

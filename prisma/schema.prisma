@@ -250,6 +250,8 @@ model Pack {
   price       Float    // preço do pack
   coverImage  String?  @map("cover_image") // URL da imagem de capa
   shareToken  String?  @unique @map("share_token") // token do link público de entrega
+  previewMinutes   Int?      @map("preview_minutes")    // duração da amostra em min (null = sem limite)
+  previewStartedAt DateTime? @map("preview_started_at") // 1ª visualização da amostra pelo cliente
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 

@@ -23,6 +23,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
     const rows = await sql`
       SELECT id, name, photos, videos, price, cover_image as "coverImage",
+             preview_minutes as "previewMinutes",
              created_at as "createdAt", updated_at as "updatedAt"
       FROM packs
       WHERE id = ${params.id} AND user_id = ${userId}
@@ -50,7 +51,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     if (!userId) return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
 
     const body = await request.json();
-    const { name, photos, videos, price, coverImage } = body;
+    const { name, photos, videos, price, coverImage, previewMinutes } = body;
 
     if (!name || photos === undefined || videos === undefined || price === undefined) {
       return NextResponse.json(
@@ -66,12 +67,18 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ error: 'Valores numéricos inválidos' }, { status: 400 });
     }
 
+    // Duração da amostra: null = sem limite. Só aceita 5/10/15.
+    const pv = parseInt(previewMinutes as string);
+    const previewInt = [5, 10, 15].includes(pv) ? pv : null;
+
     const rows = await sql`
       UPDATE packs SET
         name = ${name}, photos = ${photosInt}, videos = ${videosInt},
-        price = ${priceFloat}, cover_image = ${coverImage || null}, updated_at = NOW()
+        price = ${priceFloat}, cover_image = ${coverImage || null},
+        preview_minutes = ${previewInt}, updated_at = NOW()
       WHERE id = ${params.id} AND user_id = ${userId}
       RETURNING id, name, photos, videos, price, cover_image as "coverImage",
+                preview_minutes as "previewMinutes",
                 created_at as "createdAt", updated_at as "updatedAt"
     `;
     if (!rows.length) return NextResponse.json({ error: 'Não encontrado' }, { status: 404 });

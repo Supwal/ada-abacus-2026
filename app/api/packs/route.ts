@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
 
     const packs = await sql`
       SELECT p.id, p.name, p.photos, p.videos, p.price, p.cover_image as "coverImage",
-             p.share_token as "shareToken",
+             p.share_token as "shareToken", p.preview_minutes as "previewMinutes",
              COALESCE(m.count, 0)::int as "mediaCount",
              p.created_at as "createdAt", p.updated_at as "updatedAt"
       FROM packs p
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
 
     const userId = users[0].id;
     const body = await request.json();
-    const { name, photos, videos, price, coverImage } = body;
+    const { name, photos, videos, price, coverImage, previewMinutes } = body;
 
     // Validação básica
     if (!name || photos === undefined || videos === undefined || price === undefined) {
@@ -67,11 +67,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Valores numéricos inválidos' }, { status: 400 });
     }
 
+    // Duração da amostra: null = sem limite (pack completo). Só aceita 5/10/15.
+    const pv = parseInt(previewMinutes as string);
+    const previewInt = [5, 10, 15].includes(pv) ? pv : null;
+
     const id = `pack_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
     const rows = await sql`
-      INSERT INTO packs (id, user_id, name, photos, videos, price, cover_image, created_at, updated_at)
-      VALUES (${id}, ${userId}, ${name}, ${photosInt}, ${videosInt}, ${priceFloat}, ${coverImage || null}, NOW(), NOW())
+      INSERT INTO packs (id, user_id, name, photos, videos, price, cover_image, preview_minutes, created_at, updated_at)
+      VALUES (${id}, ${userId}, ${name}, ${photosInt}, ${videosInt}, ${priceFloat}, ${coverImage || null}, ${previewInt}, NOW(), NOW())
       RETURNING id, name, photos, videos, price, cover_image as "coverImage",
+                preview_minutes as "previewMinutes",
                 created_at as "createdAt", updated_at as "updatedAt"
     `;
 

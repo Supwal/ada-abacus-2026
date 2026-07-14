@@ -6,8 +6,9 @@ import { getDb, getSession } from '@/lib/db';
 export const dynamic = 'force-dynamic';
 
 // Gera (ou reaproveita) o token do link público de entrega do pack.
-// Idempotente: chamadas repetidas devolvem sempre o mesmo token, então o
-// mesmo link pode ser reenviado para vários clientes que comprem o pack.
+// Além disso, REINICIA a contagem da amostra (preview_started_at = NULL):
+// como esta rota é chamada ao abrir "Vender", cada envio começa uma amostra
+// nova — o cliente terá os X minutos a partir de quando ELE abrir o link.
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await getSession(request);
@@ -19,18 +20,23 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     const userId = users[0].id;
 
     const existing = await sql`
-      SELECT share_token as "shareToken" FROM packs WHERE id = ${params.id} AND user_id = ${userId} LIMIT 1
+      SELECT share_token as "shareToken", preview_minutes as "previewMinutes"
+      FROM packs WHERE id = ${params.id} AND user_id = ${userId} LIMIT 1
     `;
     if (!existing.length) return NextResponse.json({ error: 'Não encontrado' }, { status: 404 });
 
-    if (existing[0].shareToken) {
-      return NextResponse.json({ shareToken: existing[0].shareToken });
+    let token = existing[0].shareToken as string | null;
+    if (!token) {
+      token = crypto.randomUUID().replace(/-/g, '');
     }
 
-    const token = crypto.randomUUID().replace(/-/g, '');
-    await sql`UPDATE packs SET share_token = ${token} WHERE id = ${params.id} AND user_id = ${userId}`;
+    // Grava o token (se novo) e zera o início da amostra em uma tacada só.
+    await sql`
+      UPDATE packs SET share_token = ${token}, preview_started_at = NULL
+      WHERE id = ${params.id} AND user_id = ${userId}
+    `;
 
-    return NextResponse.json({ shareToken: token });
+    return NextResponse.json({ shareToken: token, previewMinutes: existing[0].previewMinutes });
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     console.error('Erro ao gerar link de compartilhamento:', msg);

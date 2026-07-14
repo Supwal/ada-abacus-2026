@@ -73,6 +73,7 @@ export default function PacksPage() {
     videos: '',
     price: '',
     coverImage: '',
+    previewMinutes: '', // '' = sem limite (pack completo); '5'/'10'/'15' = amostra
   });
   const [uploadingImage, setUploadingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -114,6 +115,7 @@ export default function PacksPage() {
       videos: '',
       price: '',
       coverImage: '',
+      previewMinutes: '',
     });
     setArquivosNovoPack([]);
     setModalAberto(true);
@@ -127,6 +129,7 @@ export default function PacksPage() {
       videos: pack.videos.toString(),
       price: pack.price.toString(),
       coverImage: pack.coverImage || '',
+      previewMinutes: pack.previewMinutes ? String(pack.previewMinutes) : '',
     });
     setArquivosNovoPack([]);
     setModalAberto(true);
@@ -147,6 +150,7 @@ export default function PacksPage() {
         videos: parseInt(formPack.videos),
         price: parseFloat(formPack.price),
         coverImage: formPack.coverImage || null,
+        previewMinutes: formPack.previewMinutes ? parseInt(formPack.previewMinutes) : null,
       };
 
       // Guarda o id do pack salvo para enviar os arquivos escolhidos em seguida
@@ -204,6 +208,7 @@ export default function PacksPage() {
         videos: '',
         price: '',
         coverImage: '',
+        previewMinutes: '',
       });
     } catch (error) {
       console.error('Erro ao salvar pack:', error);
@@ -250,31 +255,30 @@ export default function PacksPage() {
   const buildShareLink = (token: string) =>
     typeof window !== 'undefined' ? `${window.location.origin}/p/${token}` : '';
 
-  // Abre o dialog de venda (enviar pack ao cliente) — garante que existe um
-  // link público antes de mostrar a mensagem, gerando na primeira vez.
+  // Abre o dialog de venda (enviar pack ao cliente). Chama /share SEMPRE:
+  // além de garantir o link, isso REINICIA a contagem da amostra, para o
+  // cliente ter o tempo cheio a partir de quando ELE abrir o link.
   const abrirDialogVender = async (pack: any) => {
     setPackParaVender(pack);
     setTelefoneVenda('');
     setShareLink(pack.shareToken ? buildShareLink(pack.shareToken) : '');
     setDialogVenderAberto(true);
 
-    if (!pack.shareToken) {
-      setCarregandoShare(true);
-      try {
-        const response = await fetch(`/api/packs/${pack.id}/share`, { method: 'POST' });
-        if (response.ok) {
-          const data = await response.json();
-          setShareLink(buildShareLink(data.shareToken));
-          setPacks((prev) => prev.map((p) => (p.id === pack.id ? { ...p, shareToken: data.shareToken } : p)));
-        } else {
-          toast.error('Erro ao gerar o link do pack');
-        }
-      } catch (error) {
-        console.error('Erro ao gerar link:', error);
+    setCarregandoShare(true);
+    try {
+      const response = await fetch(`/api/packs/${pack.id}/share`, { method: 'POST' });
+      if (response.ok) {
+        const data = await response.json();
+        setShareLink(buildShareLink(data.shareToken));
+        setPacks((prev) => prev.map((p) => (p.id === pack.id ? { ...p, shareToken: data.shareToken } : p)));
+      } else {
         toast.error('Erro ao gerar o link do pack');
-      } finally {
-        setCarregandoShare(false);
       }
+    } catch (error) {
+      console.error('Erro ao gerar link:', error);
+      toast.error('Erro ao gerar o link do pack');
+    } finally {
+      setCarregandoShare(false);
     }
   };
 
@@ -391,17 +395,23 @@ export default function PacksPage() {
     return `(${n.slice(0, 2)}) ${n.slice(2, 7)}-${n.slice(7, 11)}`;
   };
 
-  // Monta a mensagem de oferta do pack, com o link de entrega no final
+  // Monta a mensagem de oferta do pack, com o link de entrega no final.
+  // Se for amostra, o texto e o rótulo do link mudam para deixar claro.
   const gerarMensagemVenda = (pack: any, link: string) => {
     if (!pack) return '';
-    return (
-      `✨ *${pack.name}* ✨\n\n` +
-      `📸 ${pack.photos} fotos\n` +
-      `🎬 ${pack.videos} vídeos\n\n` +
-      `💰 Valor: R$ ${pack.price.toFixed(2)}\n\n` +
-      `Garanta já o seu! 💖` +
-      (link ? `\n\n📎 Suas fotos e vídeos:\n${link}` : '')
-    );
+    const amostra = !!pack.previewMinutes;
+    const corpo = amostra
+      ? `✨ *${pack.name}* ✨\n\n` +
+        `Preparei uma *amostra* pra você! 😉\n` +
+        `📸 ${pack.photos} fotos • 🎬 ${pack.videos} vídeos no pack completo\n\n` +
+        `💰 Pack completo: R$ ${pack.price.toFixed(2)}\n\n` +
+        `⏳ A amostra fica disponível por ${pack.previewMinutes} minutos depois que você abrir:`
+      : `✨ *${pack.name}* ✨\n\n` +
+        `📸 ${pack.photos} fotos\n` +
+        `🎬 ${pack.videos} vídeos\n\n` +
+        `💰 Valor: R$ ${pack.price.toFixed(2)}\n\n` +
+        `Garanta já o seu! 💖\n\n📎 Suas fotos e vídeos:`;
+    return corpo + (link ? `\n${link}` : '');
   };
 
   // Compartilha a oferta via WhatsApp (com ou sem número do cliente)
@@ -520,8 +530,15 @@ export default function PacksPage() {
 
                 {/* Conteúdo */}
                 <div className="p-4">
-                  {/* Nome */}
-                  <h3 className="text-lg font-bold text-gray-900 mb-3">{pack.name}</h3>
+                  {/* Nome + selo de amostra */}
+                  <div className="flex items-center gap-2 mb-3 flex-wrap">
+                    <h3 className="text-lg font-bold text-gray-900">{pack.name}</h3>
+                    {!!pack.previewMinutes && (
+                      <span className="bg-purple-100 text-purple-700 text-xs font-bold px-2 py-0.5 rounded-full">
+                        ⏳ Amostra {pack.previewMinutes}min
+                      </span>
+                    )}
+                  </div>
 
                   {/* Detalhes */}
                   <div className="space-y-2 mb-4">
@@ -676,6 +693,25 @@ export default function PacksPage() {
                 onChange={(e) => setFormPack({ ...formPack, price: e.target.value })}
                 className="shadow-sm"
               />
+            </div>
+
+            {/* Tipo de envio: pack completo ou amostra com tempo limitado */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium text-gray-700">⏳ Tipo de envio</Label>
+              <select
+                value={formPack.previewMinutes}
+                onChange={(e) => setFormPack({ ...formPack, previewMinutes: e.target.value })}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <option value="">Pack completo (sem limite de tempo)</option>
+                <option value="5">Amostra — expira em 5 minutos</option>
+                <option value="10">Amostra — expira em 10 minutos</option>
+                <option value="15">Amostra — expira em 15 minutos</option>
+              </select>
+              <p className="text-xs text-gray-400">
+                Na amostra, o cliente vê as fotos/vídeos só pelo tempo escolhido (sem baixar) —
+                ótimo para dar uma prévia e ele querer comprar o pack completo.
+              </p>
             </div>
 
             {/* Upload de Imagem de Capa */}
@@ -875,6 +911,19 @@ export default function PacksPage() {
                     Este pack ainda não tem fotos/vídeos enviados — o cliente vai abrir o
                     link e não vai encontrar nada. Feche esta janela e use "Gerenciar
                     Arquivos" primeiro.
+                  </span>
+                </div>
+              )}
+
+              {/* Aviso de amostra */}
+              {!!packParaVender.previewMinutes && (
+                <div className="bg-purple-50 border border-purple-300 text-purple-800 px-3 py-2 rounded-md text-sm flex items-start gap-2">
+                  <span className="text-base leading-none">⏳</span>
+                  <span>
+                    Este é um envio de <strong>amostra</strong>: o cliente verá as fotos/vídeos
+                    (sem poder baixar) por <strong>{packParaVender.previewMinutes} minutos</strong>{' '}
+                    a partir de quando abrir o link. A contagem reinicia cada vez que você abre
+                    esta tela.
                   </span>
                 </div>
               )}
