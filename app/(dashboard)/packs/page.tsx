@@ -626,16 +626,16 @@ export default function PacksPage() {
       {/* Modal de Criar/Editar Pack */}
       <Dialog open={modalAberto} onOpenChange={setModalAberto}>
         <DialogContent className="max-w-md max-h-[90dvh] flex flex-col">
-          <DialogHeader className="shrink-0">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="bg-purple-100 p-3 rounded-full">
-                <Plus className="h-6 w-6 text-purple-600" />
+          <DialogHeader className="shrink-0 text-left">
+            <div className="flex items-center gap-3">
+              <div className="bg-purple-100 p-2.5 rounded-full shrink-0">
+                <Plus className="h-5 w-5 text-purple-600" />
               </div>
-              <DialogTitle className="text-2xl font-bold text-gray-900">
+              <DialogTitle className="text-xl font-bold text-gray-900 text-left">
                 {packParaEditar ? '✏️ Editar Pack' : '📦 Novo Pack'}
               </DialogTitle>
             </div>
-            <DialogDescription className="text-base text-gray-700 pt-2">
+            <DialogDescription className="text-sm text-gray-600 text-left">
               {packParaEditar
                 ? 'Atualize os dados do seu pack'
                 : 'Crie um novo pacote de fotos e vídeos'}
@@ -818,19 +818,19 @@ export default function PacksPage() {
             </div>
           </div>
 
-          {/* Botões — footer fixo, sempre visível */}
-          <DialogFooter className="gap-2 sm:gap-2 shrink-0 pt-2 border-t border-gray-100">
+          {/* Botões — footer fixo, sempre visível, lado a lado e iguais */}
+          <DialogFooter className="shrink-0 pt-3 border-t border-gray-100 grid grid-cols-2 gap-2 sm:gap-2">
             <Button
               variant="outline"
               onClick={() => setModalAberto(false)}
-              className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold border-2 border-gray-300"
+              className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold border-2 border-gray-300"
             >
               ❌ Cancelar
             </Button>
             <Button
               onClick={salvarPack}
               disabled={salvandoPack}
-              className="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-semibold shadow-lg disabled:opacity-60"
+              className="w-full bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-semibold shadow-lg disabled:opacity-60"
             >
               {salvandoPack ? '⏳ Salvando...' : `💾 ${packParaEditar ? 'Atualizar' : 'Criar'} Pack`}
             </Button>
