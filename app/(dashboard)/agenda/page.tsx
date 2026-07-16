@@ -298,12 +298,10 @@ export default function ConsultaAgendaPage() {
     }));
   };
 
-  // Inicializar com o filtro do dia e carregar locais e disponibilidades
+  // Inicializar com o filtro do dia
   useEffect(() => {
     criarDadosExemplo();
     aplicarFiltroPeriodo('dia');
-    carregarLocais();
-    carregarDisponibilidades();
   }, []);
 
   const buscarAgendamentos = async (dadosFiltro: typeof formData) => {
@@ -588,15 +586,8 @@ export default function ConsultaAgendaPage() {
           </p>
         </div>
 
-        {/* Botões Definir Disponibilidade e Ver Horários */}
-        <div className="mb-6 flex justify-center gap-3 flex-wrap">
-          <Button
-            onClick={() => setModalDisponibilidadeAberto(true)}
-            className="bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white font-bold py-3 px-8 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 flex items-center gap-2"
-          >
-            <Plus className="h-5 w-5" />
-            📅 Definir Disponibilidade
-          </Button>
+        {/* Botão Ver Horários do Dia */}
+        <div className="mb-6 flex justify-center">
           <Button
             onClick={abrirDialogHorarios}
             className="bg-gradient-to-r from-teal-500 to-cyan-600 hover:from-teal-600 hover:to-cyan-700 text-white font-bold py-3 px-8 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 flex items-center gap-2"
@@ -606,75 +597,6 @@ export default function ConsultaAgendaPage() {
           </Button>
         </div>
 
-        {/* Cartões de Disponibilidades */}
-        {!carregandoDisponibilidades && disponibilidades.length > 0 && (
-          <div className="mb-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {disponibilidades.map((disp) => (
-              <div
-                key={disp.id}
-                className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl shadow-lg p-4 border-2 border-indigo-200 hover:shadow-xl transition-all duration-300 relative"
-              >
-                {/* Botão Fechar */}
-                <button
-                  onClick={() => deletarDisponibilidade(disp.id)}
-                  className="absolute top-2 right-2 bg-red-100 hover:bg-red-200 text-red-600 p-2 rounded-lg transition-colors"
-                  title="Remover disponibilidade"
-                >
-                  <XIcon className="h-4 w-4" />
-                </button>
-
-                {/* Tipo e Data */}
-                <div className="mb-3">
-                  <span className="inline-block bg-indigo-500 text-white px-3 py-1 rounded-full text-xs font-bold mb-2">
-                    {disp.type === 'dia' ? '📅 Dia' : disp.type === 'semana' ? '📆 Semana' : '⏰ Meio Período'}
-                  </span>
-                  <p className="text-sm font-semibold text-gray-700">
-                    {new Date(disp.date).toLocaleDateString('pt-BR')}
-                  </p>
-                </div>
-
-                {/* Horário */}
-                <div className="flex items-center gap-2 mb-2 text-sm text-gray-700">
-                  <Clock className="h-4 w-4 text-indigo-600" />
-                  <span className="font-medium">{disp.startTime} - {disp.endTime}</span>
-                </div>
-
-                {/* Local */}
-                <div className="flex items-center gap-2 mb-2 text-sm text-gray-700">
-                  <MapPin className="h-4 w-4 text-purple-600" />
-                  <span className="font-medium">{disp.location?.name || 'Local não informado'}</span>
-                </div>
-
-                {/* Valor/Hora */}
-                <div className="flex items-center gap-2 mb-2 text-sm text-gray-700">
-                  <DollarSign className="h-4 w-4 text-green-600" />
-                  <span className="font-medium">R$ {disp.hourlyRate.toFixed(2)}/h</span>
-                </div>
-
-                {/* Máx Agendamentos */}
-                <div className="flex items-center gap-2 mb-2 text-sm text-gray-700">
-                  <Users className="h-4 w-4 text-blue-600" />
-                  <span className="font-medium">{disp.currentAppointments}/{disp.maxAppointments}</span>
-                </div>
-
-                {/* Canal de Aviso */}
-                <div className="flex items-center gap-2 text-sm text-gray-700">
-                  <MessageSquare className="h-4 w-4 text-orange-600" />
-                  <span className="font-medium">
-                    {disp.notificationChannel === 'whatsapp' ? '💬 WhatsApp' : '📱 Telegram'}
-                  </span>
-                </div>
-
-                {/* Observações (se houver) */}
-                {disp.notes && (
-                  <div className="mt-3 pt-3 border-t border-indigo-200">
-                    <p className="text-xs text-gray-600 italic">{disp.notes}</p>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
 
         {/* Filtros Rápidos - 3 Ícones Compactos */}
         <div className="bg-gradient-to-br from-white to-gray-50 rounded-2xl shadow-2xl p-4 md:p-6 mb-6 border-2 border-pink-100">
@@ -1319,188 +1241,6 @@ export default function ConsultaAgendaPage() {
               className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold border-2 border-gray-300"
             >
               Fechar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Modal Definir Disponibilidade */}
-      <Dialog open={modalDisponibilidadeAberto} onOpenChange={setModalDisponibilidadeAberto}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <div className="flex items-center gap-3 mb-2">
-              <div className="bg-indigo-100 p-3 rounded-full">
-                <CalendarIcon className="h-6 w-6 text-indigo-600" />
-              </div>
-              <DialogTitle className="text-2xl font-bold text-gray-900">
-                📅 Definir Disponibilidade
-              </DialogTitle>
-            </div>
-            <DialogDescription className="text-base text-gray-700 pt-2">
-              Configure seus horários, locais e valores para agendamentos
-            </DialogDescription>
-          </DialogHeader>
-
-          {/* Formulário de Disponibilidade */}
-          <div className="space-y-6 py-4">
-            {/* Tipo de Disponibilidade */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-gray-700">
-                📋 Tipo de Disponibilidade
-              </Label>
-              <Select
-                value={formDisponibilidade.type}
-                onValueChange={(value) => setFormDisponibilidade({...formDisponibilidade, type: value})}
-              >
-                <SelectTrigger className="shadow-sm">
-                  <SelectValue placeholder="Selecione o tipo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="dia">📅 Dia</SelectItem>
-                  <SelectItem value="semana">📆 Semana</SelectItem>
-                  <SelectItem value="meio_periodo">⏰ Meio Período</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Data */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-gray-700">
-                📌 Data
-              </Label>
-              <Input
-                type="date"
-                value={formDisponibilidade.date}
-                onChange={(e) => setFormDisponibilidade({...formDisponibilidade, date: e.target.value})}
-                className="shadow-sm"
-              />
-            </div>
-
-            {/* Horário Início e Fim */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-sm font-medium text-gray-700">
-                  🕐 Horário de Início
-                </Label>
-                <Input
-                  type="time"
-                  value={formDisponibilidade.startTime}
-                  onChange={(e) => setFormDisponibilidade({...formDisponibilidade, startTime: e.target.value})}
-                  className="shadow-sm"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-sm font-medium text-gray-700">
-                  🕐 Horário de Término
-                </Label>
-                <Input
-                  type="time"
-                  value={formDisponibilidade.endTime}
-                  onChange={(e) => setFormDisponibilidade({...formDisponibilidade, endTime: e.target.value})}
-                  className="shadow-sm"
-                />
-              </div>
-            </div>
-
-            {/* Local */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-gray-700">
-                🏥 Local de Atendimento
-              </Label>
-              <Select
-                value={formDisponibilidade.locationId}
-                onValueChange={(value) => setFormDisponibilidade({...formDisponibilidade, locationId: value})}
-              >
-                <SelectTrigger className="shadow-sm">
-                  <SelectValue placeholder="Selecione um local" />
-                </SelectTrigger>
-                <SelectContent>
-                  {locais.map((local) => (
-                    <SelectItem key={local.id} value={local.id}>
-                      {local.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Valor por Hora */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-gray-700">
-                💰 Valor por Hora (R$)
-              </Label>
-              <Input
-                type="number"
-                step="0.01"
-                min="0"
-                placeholder="Ex: 100.00"
-                value={formDisponibilidade.hourlyRate}
-                onChange={(e) => setFormDisponibilidade({...formDisponibilidade, hourlyRate: e.target.value})}
-                className="shadow-sm"
-              />
-            </div>
-
-            {/* Máximo de Agendamentos */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-gray-700">
-                👥 Máximo de Agendamentos
-              </Label>
-              <Input
-                type="number"
-                min="1"
-                value={formDisponibilidade.maxAppointments}
-                onChange={(e) => setFormDisponibilidade({...formDisponibilidade, maxAppointments: e.target.value})}
-                className="shadow-sm"
-              />
-            </div>
-
-            {/* Canal de Aviso */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-gray-700">
-                📱 Canal de Aviso
-              </Label>
-              <Select
-                value={formDisponibilidade.notificationChannel}
-                onValueChange={(value) => setFormDisponibilidade({...formDisponibilidade, notificationChannel: value})}
-              >
-                <SelectTrigger className="shadow-sm">
-                  <SelectValue placeholder="Selecione o canal" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="whatsapp">💬 WhatsApp</SelectItem>
-                  <SelectItem value="telegram">📱 Telegram</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Observações */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-gray-700">
-                📝 Observações (Opcional)
-              </Label>
-              <Textarea
-                placeholder="Ex: Apenas pacientes regulares, agendamento mínimo de 2 horas..."
-                value={formDisponibilidade.notes}
-                onChange={(e) => setFormDisponibilidade({...formDisponibilidade, notes: e.target.value})}
-                className="shadow-sm min-h-[80px]"
-              />
-            </div>
-          </div>
-
-          {/* Botões */}
-          <DialogFooter className="gap-2 sm:gap-2">
-            <Button
-              variant="outline"
-              onClick={() => setModalDisponibilidadeAberto(false)}
-              className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold border-2 border-gray-300"
-            >
-              ❌ Cancelar
-            </Button>
-            <Button
-              onClick={salvarDisponibilidade}
-              className="bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white font-semibold shadow-lg"
-            >
-              💾 Salvar Disponibilidade
             </Button>
           </DialogFooter>
         </DialogContent>

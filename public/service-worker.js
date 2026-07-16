@@ -1,8 +1,8 @@
 
-// Service Worker for ADA APP PWA - v5.2
-const CACHE_NAME = 'ada-app-v5.2';
-const RUNTIME_CACHE = 'ada-runtime-v5.2';
-const IMAGE_CACHE = 'ada-images-v5.2';
+// Service Worker for ADA APP PWA - v5.3
+const CACHE_NAME = 'ada-app-v5.3';
+const RUNTIME_CACHE = 'ada-runtime-v5.3';
+const IMAGE_CACHE = 'ada-images-v5.3';
 
 // Assets to cache on install.
 // IMPORTANTE: NÃO pré-cachear rotas HTML (/dashboard, /agenda, ...). O HTML
@@ -88,9 +88,10 @@ self.addEventListener('fetch', (event) => {
 
   // Requisições RSC do Next.js (navegação client-side no App Router).
   // NUNCA servir de cache-first: um payload RSC antigo quebra a hidratação
-  // após um novo deploy. Sempre buscar da rede.
+  // após um novo deploy. Busca da rede COM bypass do cache do navegador
+  // (reload) — senão o HTTP cache "immutable" antigo devolve conteúdo velho.
   if (request.headers.get('RSC') === '1' || url.search.includes('_rsc=')) {
-    event.respondWith(fetch(request));
+    event.respondWith(fetch(request, { cache: 'reload' }));
     return;
   }
 
@@ -153,13 +154,16 @@ async function cacheFirstStrategy(request, cacheName) {
 // Network first strategy (good for dynamic content)
 async function networkFirstStrategy(request, cacheName) {
   try {
-    const response = await fetch(request);
-    
+    // `cache: 'reload'` ignora o cache HTTP do navegador e vai direto à rede.
+    // Necessário porque instalações antigas guardaram o HTML como "immutable"
+    // por 1 ano — sem isso, o app só mostrava versão nova com refresh manual.
+    const response = await fetch(request, { cache: 'reload' });
+
     if (response.ok) {
       const cache = await caches.open(cacheName);
       cache.put(request, response.clone());
     }
-    
+
     return response;
   } catch (error) {
     console.error('[SW] Network first strategy failed:', error);
