@@ -37,9 +37,12 @@ export function getSecret(): string {
   return secret
 }
 
-// Cliente SQL do Neon (HTTP) — usado pelas rotas que fazem SQL direto
+// Cliente SQL do Neon (HTTP) — usado pelas rotas que fazem SQL direto.
+// fetchOptions no-store: o driver usa fetch() por baixo e o Next.js cacheia
+// fetch no servidor — sem isso, queries repetidas podem devolver resultado
+// VELHO (ex.: expiração da amostra do pack nunca "acontecendo").
 export function getDb() {
-  return neon(getDatabaseUrl())
+  return neon(getDatabaseUrl(), { fetchOptions: { cache: 'no-store' } })
 }
 
 export type PrismaEdge = ReturnType<typeof makePrisma>

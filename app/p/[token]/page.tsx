@@ -1,106 +1,99 @@
-'use client';
-
 export const runtime = 'edge';
+export const dynamic = 'force-dynamic';
 
-import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
-import { Download, Clock } from 'lucide-react';
+import { Download } from 'lucide-react';
+import { getDb } from '@/lib/db';
+import { CountdownAmostra } from './countdown';
+
+// Página PÚBLICA do pack, montada 100% no SERVIDOR (exceção consciente à
+// convenção de páginas client deste projeto): ela é aberta em qualquer
+// celular do cliente final — Android antigo, navegador do WhatsApp etc. —
+// onde o JavaScript pode falhar. Antes era client-side e ficava presa no
+// spinner para sempre nesses aparelhos. Renderizada no servidor, funciona
+// até sem JS; o cronômetro é só um aprimoramento (ver countdown.tsx).
 
 interface MediaItem {
   id: string;
-  type: 'photo' | 'video';
+  type: string;
 }
 
-export default function PackPublicPage() {
-  const params = useParams();
-  const token = params?.token as string;
-  const [loading, setLoading] = useState(true);
-  const [erro, setErro] = useState('');
-  const [nome, setNome] = useState('');
-  const [media, setMedia] = useState<MediaItem[]>([]);
-  const [isAmostra, setIsAmostra] = useState(false);
-  const [restanteMs, setRestanteMs] = useState<number | null>(null);
-  const [expirado, setExpirado] = useState(false);
+function Moldura({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50 p-4">
+      <div className="bg-white rounded-2xl shadow-xl p-8 text-center max-w-sm">{children}</div>
+    </div>
+  );
+}
 
-  useEffect(() => {
-    if (!token) return;
-    fetch(`/api/p/${token}`, { cache: 'no-store' })
-      .then(async (res) => {
-        if (!res.ok) throw new Error('not found');
-        return res.json();
-      })
-      .then((data) => {
-        setNome(data.name);
-        if (data.previewMinutes) setIsAmostra(true);
-        if (data.expired) {
-          setExpirado(true);
-        } else {
-          setMedia(data.media || []);
-          if (typeof data.expiresInMs === 'number') setRestanteMs(data.expiresInMs);
-        }
-      })
-      .catch(() => setErro('Link inválido ou não encontrado.'))
-      .finally(() => setLoading(false));
-  }, [token]);
+export default async function PackPublicPage({ params }: { params: { token: string } }) {
+  const token = params.token;
 
-  // Cronômetro da amostra: conta regressivo e expira ao chegar a zero.
-  useEffect(() => {
-    if (restanteMs === null || expirado) return;
-    if (restanteMs <= 0) { setExpirado(true); return; }
-    const timer = setInterval(() => {
-      setRestanteMs((ms) => {
-        if (ms === null) return ms;
-        const novo = ms - 1000;
-        if (novo <= 0) { clearInterval(timer); setExpirado(true); return 0; }
-        return novo;
-      });
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [restanteMs, expirado]);
+  let pack: any = null;
+  let media: MediaItem[] = [];
+  let expiresInMs: number | null = null;
 
-  const formatarTempo = (ms: number) => {
-    const total = Math.max(0, Math.floor(ms / 1000));
-    const m = Math.floor(total / 60);
-    const s = total % 60;
-    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-  };
+  try {
+    const sql = getDb();
 
-  if (loading) {
+    // Tempo restante calculado no SQL (UTC). preview_started_at NULL = ainda
+    // não aberto → tempo cheio.
+    const packs = await sql`
+      SELECT id, name, preview_minutes as "previewMinutes",
+             CASE
+               WHEN preview_minutes IS NULL THEN NULL
+               WHEN preview_started_at IS NULL THEN preview_minutes * 60000
+               ELSE CEIL(EXTRACT(EPOCH FROM (
+                      preview_started_at + preview_minutes * interval '1 minute' - NOW()
+                    )) * 1000)
+             END as "remainingMs"
+      FROM packs WHERE share_token = ${token} LIMIT 1
+    `;
+
+    if (!packs.length) {
+      return (
+        <Moldura>
+          <p className="text-lg font-semibold text-gray-700">Link inválido ou não encontrado.</p>
+        </Moldura>
+      );
+    }
+    pack = packs[0];
+
+    if (pack.previewMinutes) {
+      // Marca a 1ª visualização (só efetiva se ainda não tinha começado).
+      await sql`UPDATE packs SET preview_started_at = NOW() WHERE id = ${pack.id} AND preview_started_at IS NULL`;
+      expiresInMs = Number(pack.remainingMs);
+
+      if (expiresInMs <= 0) {
+        return (
+          <Moldura>
+            <div className="text-5xl mb-3">⏳</div>
+            <h1 className="text-xl font-bold text-gray-900 mb-2">Amostra encerrada</h1>
+            <p className="text-gray-600 text-sm">O tempo de visualização desta amostra terminou.</p>
+            <p className="text-gray-800 font-medium mt-4">
+              Gostou? 💖 Fale com a profissional para adquirir o pack completo!
+            </p>
+          </Moldura>
+        );
+      }
+    }
+
+    media = (await sql`
+      SELECT id, type FROM pack_media
+      WHERE pack_id = ${pack.id}
+      ORDER BY order_index ASC, created_at ASC
+    `) as unknown as MediaItem[];
+  } catch (error) {
+    console.error('Erro ao carregar pack público:', error);
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-pink-50 to-purple-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-500" />
-      </div>
+      <Moldura>
+        <p className="text-lg font-semibold text-gray-700">
+          Não foi possível carregar agora. Tente abrir o link novamente.
+        </p>
+      </Moldura>
     );
   }
 
-  if (erro) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-pink-50 to-purple-50 p-4">
-        <div className="bg-white rounded-2xl shadow-xl p-8 text-center max-w-sm">
-          <p className="text-lg font-semibold text-gray-700">{erro}</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Amostra expirada — convida a adquirir o pack completo.
-  if (expirado) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50 p-4">
-        <div className="bg-white rounded-2xl shadow-xl p-8 text-center max-w-sm">
-          <div className="text-5xl mb-3">⏳</div>
-          <h1 className="text-xl font-bold text-gray-900 mb-2">Amostra encerrada</h1>
-          <p className="text-gray-600 text-sm">
-            O tempo de visualização desta amostra terminou.
-          </p>
-          <p className="text-gray-800 font-medium mt-4">
-            Gostou? 💖 Fale com a profissional para adquirir o pack completo!
-          </p>
-        </div>
-      </div>
-    );
-  }
-
+  const isAmostra = !!pack.previewMinutes;
   const fotos = media.filter((m) => m.type === 'photo');
   const videos = media.filter((m) => m.type === 'video');
 
@@ -108,7 +101,7 @@ export default function PackPublicPage() {
     <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50 p-4">
       <div className="max-w-2xl mx-auto py-6">
         <div className="text-center mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">✨ {nome} ✨</h1>
+          <h1 className="text-2xl font-bold text-gray-900">✨ {pack.name} ✨</h1>
           {isAmostra ? (
             <p className="text-gray-600 text-sm mt-1">
               Esta é uma <strong>amostra</strong> — aproveite enquanto está disponível 😉
@@ -120,13 +113,7 @@ export default function PackPublicPage() {
           )}
         </div>
 
-        {/* Cronômetro da amostra */}
-        {isAmostra && restanteMs !== null && (
-          <div className="sticky top-2 z-10 mx-auto mb-5 w-fit bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-full px-5 py-2 shadow-lg flex items-center gap-2 font-bold">
-            <Clock className="h-5 w-5" />
-            <span>Amostra expira em {formatarTempo(restanteMs)}</span>
-          </div>
-        )}
+        {isAmostra && expiresInMs !== null && <CountdownAmostra expiresInMs={expiresInMs} />}
 
         {media.length === 0 && (
           <div className="bg-white rounded-2xl shadow-xl p-8 text-center text-gray-500">
@@ -138,6 +125,7 @@ export default function PackPublicPage() {
           <div className="grid grid-cols-2 gap-3 mb-6">
             {fotos.map((f) => (
               <div key={f.id} className="bg-white rounded-xl shadow-md overflow-hidden">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={`/api/p/${token}/media/${f.id}`}
                   alt=""
@@ -163,7 +151,12 @@ export default function PackPublicPage() {
             {videos.map((v) => (
               <div key={v.id} className="bg-white rounded-xl shadow-md overflow-hidden">
                 {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-                <video controls controlsList={isAmostra ? 'nodownload' : undefined} className="w-full" src={`/api/p/${token}/media/${v.id}`} />
+                <video
+                  controls
+                  controlsList={isAmostra ? 'nodownload' : undefined}
+                  className="w-full"
+                  src={`/api/p/${token}/media/${v.id}`}
+                />
                 {!isAmostra && (
                   <a
                     href={`/api/p/${token}/media/${v.id}?download=1`}
