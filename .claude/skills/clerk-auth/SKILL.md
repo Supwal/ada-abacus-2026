@@ -25,6 +25,30 @@ envia os e-mails — sem configurar SMTP), e recuperação de senha.
 - **Não existe `middleware.ts`** hoje (a proteção é client-side + checagem por
   rota de API).
 
+## ⚠️ A CLI da Clerk NÃO roda nesta máquina
+
+Testado em 2026-07: `npm install -g clerk` (v2.3.0) instala, mas qualquer
+comando falha com exit code `0xC000001D` = **STATUS_ILLEGAL_INSTRUCTION** —
+o binário exige instruções de CPU que este processador não tem. Não é
+contornável.
+
+**Consequência prática:** ignore os passos de CLI (`clerk auth login`,
+`clerk init`, `clerk doctor`) e vá direto pela configuração manual do
+quickstart oficial — que é o *fallback* previsto no próprio guia (Passo 5).
+Foi assim que a Fase 1 e 2 foram feitas, com o mesmo resultado final.
+
+## Estado atual da migração (atualizado 2026-07)
+
+- ✅ **Fase 1** — `@clerk/nextjs` + `@clerk/localizations`, `middleware.ts`
+  e `ClerkProvider`, ambos CONDICIONAIS à presença da chave pública.
+- ✅ **Fase 2** — telas `/entrar` e `/cadastrar` (catch-all `[[...rest]]`,
+  `runtime = 'edge'`), em pt-BR, coexistindo com `/auth/login` antigo.
+- ⏳ **Fase 3-5** — ponte de usuários por e-mail, troca do `getSession`,
+  desligar NextAuth. Ainda não iniciadas.
+- 🔑 **Chaves**: presentes em `.env.local` (dev). Em **produção ainda NÃO
+  cadastradas** no Cloudflare — por isso tudo continua inerte lá, e o
+  NextAuth segue mandando. Esse é o passo manual pendente do dono.
+
 ## Passos do guia oficial (clerk.com/SKILL.md), adaptados
 
 1. **CLI**: `npm install -g clerk` (o pacote npm chama-se `clerk`;
