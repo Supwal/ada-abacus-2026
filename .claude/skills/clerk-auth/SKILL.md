@@ -43,8 +43,26 @@ Foi assim que a Fase 1 e 2 foram feitas, com o mesmo resultado final.
   e `ClerkProvider`, ambos CONDICIONAIS à presença da chave pública.
 - ✅ **Fase 2** — telas `/entrar` e `/cadastrar` (catch-all `[[...rest]]`,
   `runtime = 'edge'`), em pt-BR, coexistindo com `/auth/login` antigo.
-- ⏳ **Fase 3-5** — ponte de usuários por e-mail, troca do `getSession`,
-  desligar NextAuth. Ainda não iniciadas.
+- ✅ **Fase 3** — ponte de usuários: coluna `users.clerk_user_id`,
+  `lib/clerk-bridge.ts`, rota `/api/auth/clerk-sync` e tela `/pos-login`
+  (para onde a Clerk redireciona após o login). Testes em
+  `scripts/test-clerk-bridge.ts`.
+- ⏳ **Fase 4-5** — trocar o `getSession` para aceitar sessão Clerk e
+  depois desligar o NextAuth. Ainda não iniciadas.
+
+### Regras de segurança da ponte (não afrouxar)
+
+O vínculo casa o **e-mail** da conta Clerk com o usuário existente. Duas
+travas impedem sequestro de conta — ambas cobertas por teste:
+
+1. **Só e-mail verificado vincula.** Sem isso, bastaria alguém se cadastrar
+   digitando o e-mail da profissional para herdar a conta dela inteira.
+2. **Não se toma conta já vinculada.** Se o e-mail pertence a um usuário já
+   ligado a outra identidade Clerk, a operação é recusada com mensagem
+   amigável (antes disso, dava erro de chave duplicada — bug pego em teste).
+
+A identidade vem sempre de `currentUser()` no servidor; nunca de e-mail
+enviado pelo cliente, que seria trivial de forjar.
 - 🔑 **Chaves**: presentes em `.env.local` (dev). Em **produção ainda NÃO
   cadastradas** no Cloudflare — por isso tudo continua inerte lá, e o
   NextAuth segue mandando. Esse é o passo manual pendente do dono.
@@ -67,6 +85,31 @@ Foi assim que a Fase 1 e 2 foram feitas, com o mesmo resultado final.
 6. **Verificação**: `clerk doctor` + testar login/cadastro.
 7. **Tema shadcn (opcional)**: `@clerk/ui` — este projeto usa Radix+Tailwind,
    avaliar depois.
+
+## ⚠️ Chaves de teste NÃO servem para produção
+
+As chaves atuais são de **desenvolvimento** (`pk_test_` / `sk_test_`). A
+instância de desenvolvimento da Clerk:
+
+- tem **limite baixo de usuários** (algumas centenas) e de requisições;
+- exibe o aviso **"Development mode"** no rodapé das telas de login;
+- **não é suportada para uso real** — a própria Clerk desaconselha.
+
+Para valer, é preciso criar uma **instância de produção** no painel
+(Clerk → alternar de Development para Production). Ela gera `pk_live_` /
+`sk_live_` e exige:
+
+1. **Domínio próprio** (ex.: `app.seudominio.com`). O `*.pages.dev` do
+   Cloudflare costuma servir para começar, mas o recomendado é domínio
+   próprio — combina com o item "Domínio personalizado" do
+   DEPLOY_CLOUDFLARE.md.
+2. **Registros DNS** que a Clerk indica (CNAMEs para o domínio dela),
+   cadastrados no Cloudflare.
+3. Trocar as variáveis no Cloudflare pelas chaves `live`.
+
+**Sequência recomendada:** manter as chaves de teste enquanto valida o fluxo
+(Fases 3-4), e só criar a instância de produção quando for de fato ligar o
+login novo para a profissional — evitando configurar DNS antes da hora.
 
 ## Variáveis de ambiente
 

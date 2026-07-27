@@ -23,7 +23,7 @@ export default function CadastrarPage() {
       </div>
 
       {clerkConfigurado ? (
-        <SignUp signInUrl="/entrar" fallbackRedirectUrl="/dashboard" />
+        <SignUp signInUrl="/entrar" fallbackRedirectUrl="/pos-login" />
       ) : (
         <div className="bg-white rounded-2xl shadow-xl p-8 text-center max-w-sm">
           <p className="text-gray-700 font-medium">

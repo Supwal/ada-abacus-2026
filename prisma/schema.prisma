@@ -49,6 +49,7 @@ model User {
   emailVerified DateTime? @map("email_verified")
   image         String?
   hashedPassword String?  @map("hashed_password")
+  clerkUserId   String?   @unique @map("clerk_user_id") // ponte com a conta Clerk
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
 

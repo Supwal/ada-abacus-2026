@@ -21,7 +21,7 @@ export default function EntrarPage() {
       </div>
 
       {clerkConfigurado ? (
-        <SignIn signUpUrl="/cadastrar" fallbackRedirectUrl="/dashboard" />
+        <SignIn signUpUrl="/cadastrar" fallbackRedirectUrl="/pos-login" />
       ) : (
         <div className="bg-white rounded-2xl shadow-xl p-8 text-center max-w-sm">
           <p className="text-gray-700 font-medium">
