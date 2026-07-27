@@ -6,6 +6,8 @@ import { Providers } from "@/components/providers";
 import { PWAInstallPrompt } from "@/components/pwa-install-prompt";
 import { PWAUpdateNotification } from "@/components/pwa-update-notification";
 import { OfflineIndicator } from "@/components/offline-indicator";
+import { ClerkProvider } from "@clerk/nextjs";
+import { ptBR } from "@clerk/localizations";
 import Script from "next/script";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -43,6 +45,17 @@ export const viewport: Viewport = {
   userScalable: false,
 };
 
+/**
+ * FASE 1 da migração para Clerk — modo CONVIVÊNCIA.
+ * O ClerkProvider só entra em cena se a chave pública existir no ambiente;
+ * sem ela (ex.: produção antes de cadastrar os segredos), a árvore fica
+ * exatamente como era e o NextAuth segue mandando no login.
+ */
+function AuthProvider({ children }: { children: React.ReactNode }) {
+  if (!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY) return <>{children}</>;
+  return <ClerkProvider localization={ptBR}>{children}</ClerkProvider>;
+}
+
 export default function RootLayout({
   children,
 }: {
@@ -75,12 +88,14 @@ export default function RootLayout({
         <meta name="msapplication-config" content="/browserconfig.xml" />
       </head>
       <body className={inter.className}>
-        <Providers>
-          {children}
-          <PWAInstallPrompt />
-          <PWAUpdateNotification />
-          <OfflineIndicator />
-        </Providers>
+        <AuthProvider>
+          <Providers>
+            {children}
+            <PWAInstallPrompt />
+            <PWAUpdateNotification />
+            <OfflineIndicator />
+          </Providers>
+        </AuthProvider>
         
         {/* Service Worker Registration */}
         <Script id="register-sw" strategy="afterInteractive">
