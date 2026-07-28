@@ -191,6 +191,32 @@ ada_app_codigo/
 
 ---
 
+## ⚠️ Node (dev) ≠ workerd (produção) — a armadilha mais perigosa daqui
+
+`npm run dev` roda em **Node**; a produção roda em **workerd** (Cloudflare).
+Alguns recursos web existem no Node e **não** no workerd — o código passa
+limpo em todos os testes locais e só quebra depois do deploy, atingindo
+usuário real.
+
+**Já aconteceu:** passar `fetchOptions: { cache: 'no-store' }` ao driver do
+Neon derrubou **toda** query em produção com
+`The 'cache' field on 'RequestInitializerDict' is not implemented` —
+login e cadastro fora do ar. Em dev, funcionava perfeitamente.
+
+**Regras práticas:**
+- Não passe o campo `cache` do fetch em nada que rode no servidor. Para
+  evitar resposta velha, use `export const dynamic = 'force-dynamic'`.
+- Desconfie de qualquer opção nova de `fetch`, `Request` ou `Response`.
+- Mudou algo em `lib/db.ts` ou em fetch de servidor? **Teste em produção
+  logo após o deploy** — um health check simples já pega:
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' https://ada-abacus-2026.pages.dev/api/p/token-invalido
+```
+
+`404` = banco respondendo (token não existe, como esperado).
+`500` = conexão com o banco quebrada — algo do runtime falhou.
+
 ## Troubleshooting
 
 **`Prisma Client was configured to use the 'adapter' option but it was imported via its '/edge' endpoint`**
