@@ -38,11 +38,18 @@ export function getSecret(): string {
 }
 
 // Cliente SQL do Neon (HTTP) — usado pelas rotas que fazem SQL direto.
-// fetchOptions no-store: o driver usa fetch() por baixo e o Next.js cacheia
-// fetch no servidor — sem isso, queries repetidas podem devolver resultado
-// VELHO (ex.: expiração da amostra do pack nunca "acontecendo").
+//
+// ⚠️ NÃO passar `fetchOptions: { cache: ... }` aqui. O runtime do Cloudflare
+// Workers não implementa o campo `cache` do fetch e derruba TODA query com
+// "The 'cache' field on 'RequestInitializerDict' is not implemented" — só em
+// produção, porque em Node (dev) o campo é aceito normalmente. Isso já
+// quebrou o login/cadastro uma vez.
+//
+// Para evitar respostas cacheadas, use `export const dynamic = 'force-dynamic'`
+// na rota/página (é o que as rotas deste projeto fazem) — que é o mecanismo
+// do próprio Next e funciona nos dois runtimes.
 export function getDb() {
-  return neon(getDatabaseUrl(), { fetchOptions: { cache: 'no-store' } })
+  return neon(getDatabaseUrl())
 }
 
 export type PrismaEdge = ReturnType<typeof makePrisma>
@@ -58,14 +65,47 @@ const COOKIE = 'next-auth.session-token'
 const SECURE_COOKIE = '__Secure-next-auth.session-token'
 
 /**
- * Resolve a sessão do usuário a partir do cookie de sessão NextAuth,
- * decodificando o JWT com o secret do ambiente. Retorna o payload
- * (sub, email, name, ...) ou null se não autenticado/ inválido.
+ * Resolve a sessão do usuário — aceita AS DUAS autenticações (FASE 4).
  *
- * Usa a mesma resolução de secret do login, garantindo consistência
- * entre a emissão e a validação do token no Edge Runtime.
+ * Tenta primeiro a Clerk (login novo, com verificação por e-mail) e, se não
+ * houver, cai no NextAuth (login atual). Isso permite migrar sem reescrever
+ * as ~25 rotas de API que dependem desta função.
+ *
+ * ⚠️ CONTRATO QUE NÃO PODE MUDAR: `sub` é sempre o **id do usuário na tabela
+ * `users`**, nunca o id da Clerk. Quatro rotas (agenda-status, availabilities,
+ * availabilities/[id], dashboard/stats) usam `sub` direto como `user_id` nas
+ * queries — devolver o id da Clerk ali faria essas telas não acharem nada.
+ * Por isso, no caminho Clerk, traduzimos clerk_user_id -> users.id antes de
+ * responder.
  */
 export async function getSession(req: NextRequest) {
+  // 1) Sessão Clerk (só se o ambiente estiver configurado).
+  if (process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY) {
+    try {
+      const { auth } = await import('@clerk/nextjs/server')
+      const { userId: clerkUserId } = await auth()
+
+      if (clerkUserId) {
+        const sql = getDb()
+        const rows = await sql`
+          SELECT id, email, name FROM users WHERE clerk_user_id = ${clerkUserId} LIMIT 1
+        `
+        // Sem vínculo ainda (usuário nem passou pelo /pos-login): trata como
+        // não autenticado em vez de inventar identidade.
+        if (rows.length) {
+          return {
+            sub: rows[0].id as string,
+            email: rows[0].email as string,
+            name: (rows[0].name as string | null) ?? undefined,
+          }
+        }
+      }
+    } catch {
+      // Clerk indisponível/fora de contexto — segue para o NextAuth.
+    }
+  }
+
+  // 2) Sessão NextAuth (login atual) — comportamento original.
   const token = req.cookies.get(SECURE_COOKIE)?.value || req.cookies.get(COOKIE)?.value
   if (!token) return null
   try {
