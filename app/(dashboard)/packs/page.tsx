@@ -886,7 +886,15 @@ export default function PacksPage() {
       </AlertDialog>
 
       {/* Dialog de Venda — enviar o pack ao cliente */}
-      <Dialog open={dialogVenderAberto} onOpenChange={setDialogVenderAberto}>
+      <Dialog
+        open={dialogVenderAberto}
+        onOpenChange={(aberto) => {
+          setDialogVenderAberto(aberto);
+          // Ao fechar, zera o número: cada envio começa em branco, sem
+          // arrastar o telefone do cliente anterior.
+          if (!aberto) setTelefoneVenda('');
+        }}
+      >
         <DialogContent className="max-w-md max-h-[90dvh] flex flex-col">
           <DialogHeader className="shrink-0">
             <div className="flex items-center gap-3 mb-2">
@@ -947,14 +955,33 @@ export default function PacksPage() {
                 <Label className="text-sm font-medium text-gray-700">
                   📱 WhatsApp do cliente (opcional)
                 </Label>
-                <Input
-                  type="tel"
-                  placeholder="(11) 99999-9999"
-                  value={telefoneVenda}
-                  onChange={(e) => setTelefoneVenda(formatarCelular(e.target.value))}
-                  maxLength={16}
-                  className="shadow-sm"
-                />
+                <div className="relative">
+                  <Input
+                    type="tel"
+                    inputMode="numeric"
+                    placeholder="(11) 99999-9999"
+                    value={telefoneVenda}
+                    onChange={(e) => setTelefoneVenda(formatarCelular(e.target.value))}
+                    maxLength={16}
+                    // Impede o navegador de repreencher com o número do envio
+                    // anterior. O name aleatório é necessário porque só
+                    // autoComplete="off" costuma ser ignorado no mobile.
+                    autoComplete="off"
+                    name={`whatsapp-cliente-${packParaVender?.id ?? 'novo'}`}
+                    className="shadow-sm pr-10"
+                  />
+                  {telefoneVenda && (
+                    <button
+                      type="button"
+                      onClick={() => setTelefoneVenda('')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 p-1"
+                      title="Limpar número"
+                      aria-label="Limpar número"
+                    >
+                      <XIcon className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
                 <p className="text-xs text-gray-400">
                   Deixe em branco para escolher o contato na hora de enviar.
                 </p>
