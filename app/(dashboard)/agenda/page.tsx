@@ -105,8 +105,9 @@ export default function ConsultaAgendaPage() {
     notificationChannel: 'whatsapp'
   });
 
-  // Blocos de horário exibidos na consulta rápida (07:00 às 21:00)
-  const HORARIOS_CONSULTA = Array.from({ length: 15 }, (_, i) => `${String(i + 7).padStart(2, '0')}:00`);
+  // Blocos de horário exibidos na consulta rápida: 06:00 às 23:00 — o último
+  // bloco cobre até 23:59, ou seja, o dia inteiro a partir das 6h.
+  const HORARIOS_CONSULTA = Array.from({ length: 18 }, (_, i) => `${String(i + 6).padStart(2, '0')}:00`);
 
   // Busca os agendamentos de um dia e marca quais blocos de horário estão ocupados
   const carregarHorariosOcupados = async (data: string) => {
@@ -125,7 +126,11 @@ export default function ConsultaAgendaPage() {
         const [hi, mi] = ag.startTime.split(':').map(Number);
         const [hf, mf] = ag.endTime.split(':').map(Number);
         const inicio = hi * 60 + mi;
-        const fim = hf * 60 + mf;
+        let fim = hf * 60 + mf;
+        // Atendimento que vira o dia (ex.: 23:00 → 00:00) termina "antes" do
+        // início em minutos. Soma 24h para o intervalo não ficar invertido —
+        // senão o bloco das 23:00 apareceria como livre.
+        if (fim <= inicio) fim += 24 * 60;
         const nome = ag.clientName || ag.client?.name || 'Ocupado';
         for (const h of HORARIOS_CONSULTA) {
           const [hh, mm] = h.split(':').map(Number);
