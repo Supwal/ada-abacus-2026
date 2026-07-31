@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Trash2, AlertTriangle, CheckCircle } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
+import { clearCurrentScope } from "@/lib/user-storage";
 
 export default function LimparDadosPage() {
   const [confirmacao, setConfirmacao] = useState('');
@@ -34,13 +35,17 @@ export default function LimparDadosPage() {
         throw new Error('Erro ao limpar dados do banco de dados');
       }
 
+      // Limpar também o que está guardado no aparelho (despesas locais,
+      // categorias, contador de código de cliente) — só do usuário logado.
+      clearCurrentScope();
+
       // Aguardar um pouco para simular processamento
       await new Promise(resolve => setTimeout(resolve, 1000));
 
       setDadosLimpos(true);
       setConfirmacao('');
-      
-      toast.success('Dados limpos com sucesso do banco de dados!');
+
+      toast.success('Dados limpos com sucesso do banco de dados e deste aparelho!');
       
     } catch (error) {
       console.error('Erro ao limpar dados:', error);

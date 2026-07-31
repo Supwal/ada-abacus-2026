@@ -13,6 +13,7 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { readJson, writeJson } from "@/lib/user-storage";
 
 const categoriasDefault = [
   'Alimentação',
@@ -41,9 +42,9 @@ export default function NovaDespesaPage() {
   const [dialogAberto, setDialogAberto] = useState(false);
   const [novaCategoria, setNovaCategoria] = useState('');
 
-  // Carregar categorias personalizadas do localStorage
+  // Carregar categorias personalizadas do usuário logado
   useEffect(() => {
-    const categoriasPersonalizadas = JSON.parse(localStorage.getItem('categoriasDespesas') || '[]');
+    const categoriasPersonalizadas = readJson<string[]>('categoriasDespesas', []);
     if (categoriasPersonalizadas.length > 0) {
       setCategorias([...categoriasDefault, ...categoriasPersonalizadas]);
     }
@@ -65,10 +66,10 @@ export default function NovaDespesaPage() {
       return;
     }
 
-    // Adicionar a nova categoria
-    const categoriasPersonalizadas = JSON.parse(localStorage.getItem('categoriasDespesas') || '[]');
+    // Adicionar a nova categoria (no espaço do usuário logado)
+    const categoriasPersonalizadas = readJson<string[]>('categoriasDespesas', []);
     categoriasPersonalizadas.push(novaCategoria.trim());
-    localStorage.setItem('categoriasDespesas', JSON.stringify(categoriasPersonalizadas));
+    writeJson('categoriasDespesas', categoriasPersonalizadas);
 
     // Atualizar o estado
     setCategorias([...categorias, novaCategoria.trim()]);
@@ -121,17 +122,15 @@ export default function NovaDespesaPage() {
       return;
     }
 
-    // Aqui você salvaria os dados no backend ou localStorage
-    console.log('Dados da despesa:', formData);
-    
-    // Salvar no localStorage (temporário)
-    const despesas = JSON.parse(localStorage.getItem('despesas') || '[]');
+    // Salvar no armazenamento local do usuário logado (temporário — ainda não
+    // vai para o banco, mas já fica isolado por conta)
+    const despesas = readJson<any[]>('despesas', []);
     despesas.push({
       ...formData,
       id: Date.now(),
       dataCriacao: new Date().toISOString()
     });
-    localStorage.setItem('despesas', JSON.stringify(despesas));
+    writeJson('despesas', despesas);
     
     // Mostrar mensagem de sucesso
     toast.success("✅ Despesa Cadastrada!", {

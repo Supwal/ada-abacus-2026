@@ -4,8 +4,11 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import { readItem, writeItem, removeItem } from '@/lib/user-storage';
 
 const IDLE_TIMEOUT = 2 * 60 * 1000; // 2 minutos em milissegundos
+// Chaves escopadas por usuário — o cronômetro de uma conta não pode
+// derrubar (nem prolongar) a sessão de outra no mesmo aparelho.
 const LAST_ACTIVITY_KEY = 'lastActivityTime';
 const SESSION_ACTIVE_KEY = 'sessionActive';
 
@@ -17,11 +20,10 @@ export function useIdleLogout() {
 
   const handleLogout = useCallback(async () => {
     // Limpar flags de sessão
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem(SESSION_ACTIVE_KEY);
-      localStorage.removeItem(LAST_ACTIVITY_KEY);
-    }
-    
+    removeItem(SESSION_ACTIVE_KEY);
+    removeItem(LAST_ACTIVITY_KEY);
+
+
     // Fazer logout
     await signOut({ redirect: false });
     router.push('/auth/login');
@@ -31,11 +33,9 @@ export function useIdleLogout() {
     const now = Date.now();
     lastActivityRef.current = now;
     
-    // Salvar última atividade no localStorage
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(LAST_ACTIVITY_KEY, now.toString());
-      localStorage.setItem(SESSION_ACTIVE_KEY, 'true');
-    }
+    // Salvar última atividade (no espaço do usuário logado)
+    writeItem(LAST_ACTIVITY_KEY, now.toString());
+    writeItem(SESSION_ACTIVE_KEY, 'true');
 
     // Limpar timeout anterior
     if (timeoutIdRef.current) {
@@ -51,15 +51,15 @@ export function useIdleLogout() {
   const checkLastActivity = useCallback(() => {
     if (typeof window === 'undefined') return;
 
-    const lastActivityStr = localStorage.getItem(LAST_ACTIVITY_KEY);
-    const sessionActive = localStorage.getItem(SESSION_ACTIVE_KEY);
+    const lastActivityStr = readItem(LAST_ACTIVITY_KEY);
+    const sessionActive = readItem(SESSION_ACTIVE_KEY);
 
-    // Se não há sessão ativa registrada mas o usuário está logado, 
+    // Se não há sessão ativa registrada mas o usuário está logado,
     // inicializar a sessão (primeiro acesso após login)
     if (!sessionActive || sessionActive !== 'true') {
       // Inicializar a sessão ao invés de fazer logout
-      localStorage.setItem(SESSION_ACTIVE_KEY, 'true');
-      localStorage.setItem(LAST_ACTIVITY_KEY, Date.now().toString());
+      writeItem(SESSION_ACTIVE_KEY, 'true');
+      writeItem(LAST_ACTIVITY_KEY, Date.now().toString());
       return;
     }
 
@@ -110,9 +110,7 @@ export function useIdleLogout() {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
         // Salva o momento exato que o usuário saiu
-        if (typeof window !== 'undefined') {
-          localStorage.setItem(LAST_ACTIVITY_KEY, Date.now().toString());
-        }
+        writeItem(LAST_ACTIVITY_KEY, Date.now().toString());
         // Cancela o timer — o tempo passa mesmo sem eventos
         if (timeoutIdRef.current) {
           clearTimeout(timeoutIdRef.current);

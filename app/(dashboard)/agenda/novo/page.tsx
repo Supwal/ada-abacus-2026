@@ -12,6 +12,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { VoiceRequestButton } from "@/components/voice-request-button";
+import { readItem, writeItem, removeItem, readJson, writeJson, listScopedNames } from "@/lib/user-storage";
 
 // Tipos de pagamento padrão
 const tiposPagamentoDefault = [
@@ -82,7 +83,8 @@ export default function NovoAgendamentoPage() {
     salvarPreferenciasDia('intervalo', value);
   };
 
-  // Função para obter a chave do localStorage baseada na data atual
+  // Nome da chave das preferências do dia. O prefixo por usuário é aplicado
+  // pelo lib/user-storage — cada conta tem as suas.
   const getStorageKeyDia = () => {
     const hoje = new Date();
     const ano = hoje.getFullYear();
@@ -91,32 +93,30 @@ export default function NovoAgendamentoPage() {
     return `ada_form_prefs_${ano}-${mes}-${dia}`;
   };
 
-  // Função para salvar preferências do dia no localStorage
+  // Função para salvar preferências do dia
   const salvarPreferenciasDia = (campo: string, valor: string) => {
     const chave = getStorageKeyDia();
-    const prefsExistentes = JSON.parse(localStorage.getItem(chave) || '{}');
+    const prefsExistentes = readJson<Record<string, string>>(chave, {});
     prefsExistentes[campo] = valor;
-    localStorage.setItem(chave, JSON.stringify(prefsExistentes));
-    
+    writeJson(chave, prefsExistentes);
+
     // Limpar preferências de dias anteriores
     limparPreferenciasAntigas();
   };
 
-  // Função para limpar preferências de dias anteriores
+  // Função para limpar preferências de dias anteriores (apenas as do usuário atual)
   const limparPreferenciasAntigas = () => {
     const chaveAtual = getStorageKeyDia();
-    const keys = Object.keys(localStorage);
-    keys.forEach(key => {
-      if (key.startsWith('ada_form_prefs_') && key !== chaveAtual) {
-        localStorage.removeItem(key);
+    listScopedNames().forEach(nome => {
+      if (nome.startsWith('ada_form_prefs_') && nome !== chaveAtual) {
+        removeItem(nome);
       }
     });
   };
 
   // Função para carregar preferências do dia
   const carregarPreferenciasDia = () => {
-    const chave = getStorageKeyDia();
-    return JSON.parse(localStorage.getItem(chave) || '{}');
+    return readJson<Record<string, string>>(getStorageKeyDia(), {});
   };
 
   // Buscar locais
@@ -135,9 +135,9 @@ export default function NovoAgendamentoPage() {
     fetchLocations();
   }, []);
 
-  // Carregar tipos de pagamento personalizados do localStorage
+  // Carregar tipos de pagamento personalizados do usuário logado
   useEffect(() => {
-    const tiposPersonalizados = JSON.parse(localStorage.getItem('tiposPagamentoPersonalizados') || '[]');
+    const tiposPersonalizados = readJson<string[]>('tiposPagamentoPersonalizados', []);
     if (tiposPersonalizados.length > 0) {
       const tiposCompletos = [...tiposPagamentoDefault, ...tiposPersonalizados.map((tipo: string) => ({
         value: tipo.toLowerCase().replace(/\s+/g, '_'),
@@ -164,10 +164,10 @@ export default function NovoAgendamentoPage() {
       return;
     }
 
-    // Salvar no localStorage
-    const tiposPersonalizados = JSON.parse(localStorage.getItem('tiposPagamentoPersonalizados') || '[]');
+    // Salvar no espaço do usuário logado
+    const tiposPersonalizados = readJson<string[]>('tiposPagamentoPersonalizados', []);
     tiposPersonalizados.push(novoTipoPagamento.trim());
-    localStorage.setItem('tiposPagamentoPersonalizados', JSON.stringify(tiposPersonalizados));
+    writeJson('tiposPagamentoPersonalizados', tiposPersonalizados);
 
     // Adicionar à lista
     const novoTipoObj = {
@@ -185,30 +185,28 @@ export default function NovoAgendamentoPage() {
     toast.success('Tipo de pagamento cadastrado com sucesso!');
   };
 
-  // Chave do contador local por data
+  // Chave do contador por data. O escopo do usuário é aplicado pelo
+  // lib/user-storage: cada conta numera os próprios clientes do zero.
   const getContadorKey = (data: string) => `ada_contador_${data}`;
 
-  // Ler contador salvo no localStorage para a data
+  // Ler contador salvo para a data (do usuário logado)
   const lerContadorLocal = (data: string): number => {
-    try {
-      return parseInt(localStorage.getItem(getContadorKey(data)) || '0');
-    } catch { return 0; }
+    const bruto = readItem(getContadorKey(data));
+    const numero = parseInt(bruto || '0', 10);
+    return Number.isNaN(numero) ? 0 : numero;
   };
 
-  // Salvar contador no localStorage
+  // Salvar contador do usuário logado
   const salvarContadorLocal = (data: string, numero: number) => {
-    try {
-      localStorage.setItem(getContadorKey(data), String(numero));
-      // Limpar contadores de outros dias (manter apenas últimos 7 dias)
-      const keys = Object.keys(localStorage);
-      keys.forEach(key => {
-        if (key.startsWith('ada_contador_') && key !== getContadorKey(data)) {
-          const dataKey = key.replace('ada_contador_', '');
-          const diff = new Date(data).getTime() - new Date(dataKey).getTime();
-          if (diff > 7 * 24 * 60 * 60 * 1000) localStorage.removeItem(key);
-        }
-      });
-    } catch {}
+    writeItem(getContadorKey(data), String(numero));
+    // Limpar contadores de outros dias (manter apenas últimos 7 dias)
+    listScopedNames().forEach(nome => {
+      if (nome.startsWith('ada_contador_') && nome !== getContadorKey(data)) {
+        const dataKey = nome.replace('ada_contador_', '');
+        const diff = new Date(data).getTime() - new Date(dataKey).getTime();
+        if (diff > 7 * 24 * 60 * 60 * 1000) removeItem(nome);
+      }
+    });
   };
 
   // PREVIEW: calcula o próximo código SEM salvar no localStorage

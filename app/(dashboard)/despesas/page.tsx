@@ -13,6 +13,7 @@ import Link from "next/link";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { readJson, writeJson } from "@/lib/user-storage";
 
 const categoriasDefault = [
   { value: "alimentacao", label: "Alimentação" },
@@ -80,8 +81,8 @@ export default function DespesasPage() {
   }, []);
 
   const carregarDespesas = useCallback(() => {
-    const despesasSalvas = JSON.parse(localStorage.getItem('despesas') || '[]');
-    
+    const despesasSalvas = readJson<any[]>('despesas', []);
+
     // Calcular as datas do período selecionado
     const { dataInicial, dataFinal } = periodoFiltro.dataInicial && periodoFiltro.dataFinal
       ? periodoFiltro
@@ -117,9 +118,9 @@ export default function DespesasPage() {
     }));
   }, []);
 
-  // Carregar categorias personalizadas do localStorage
+  // Carregar categorias personalizadas do usuário logado
   useEffect(() => {
-    const categoriasPersonalizadas = JSON.parse(localStorage.getItem('categoriasDespesasPersonalizadas') || '[]');
+    const categoriasPersonalizadas = readJson<string[]>('categoriasDespesasPersonalizadas', []);
     if (categoriasPersonalizadas.length > 0) {
       const categoriasCompletas = [...categoriasDefault, ...categoriasPersonalizadas.map((cat: string) => ({
         value: cat.toLowerCase().replace(/\s+/g, '_'),
@@ -150,10 +151,10 @@ export default function DespesasPage() {
       return;
     }
 
-    // Adicionar a nova categoria
-    const categoriasPersonalizadas = JSON.parse(localStorage.getItem('categoriasDespesasPersonalizadas') || '[]');
+    // Adicionar a nova categoria (no espaço do usuário logado)
+    const categoriasPersonalizadas = readJson<string[]>('categoriasDespesasPersonalizadas', []);
     categoriasPersonalizadas.push(novaCategoria.trim());
-    localStorage.setItem('categoriasDespesasPersonalizadas', JSON.stringify(categoriasPersonalizadas));
+    writeJson('categoriasDespesasPersonalizadas', categoriasPersonalizadas);
 
     // Atualizar o estado
     const novaCategoriaObj = {
@@ -238,9 +239,9 @@ export default function DespesasPage() {
       dataCriacao: new Date().toISOString()
     };
 
-    const despesasExistentes = JSON.parse(localStorage.getItem('despesas') || '[]');
+    const despesasExistentes = readJson<any[]>('despesas', []);
     despesasExistentes.push(novaDespesa);
-    localStorage.setItem('despesas', JSON.stringify(despesasExistentes));
+    writeJson('despesas', despesasExistentes);
 
     // Limpar formulário
     handleCancel();
