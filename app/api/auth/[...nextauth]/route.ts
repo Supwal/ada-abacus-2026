@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { encode, decode } from 'next-auth/jwt'
 import { verifyPassword } from '@/lib/password'
 import { getDb, getSecret } from '@/lib/db'
+import { normalizeEmail } from '@/lib/validation'
 
 const COOKIE = 'next-auth.session-token'
 const SECURE_COOKIE = '__Secure-next-auth.session-token'
@@ -103,12 +104,15 @@ export async function POST(req: NextRequest, { params }: { params: { nextauth: s
           ? NextResponse.json({ ok: false, error: 'CredentialsSignin', status: 401, url: null })
           : NextResponse.redirect(new URL('/auth/login?error=CredentialsSignin', req.url))
 
-      if (!email || !password) return fail()
+      // Mesma normalização do cadastro: quem digitou "Maria@Gmail.com" entra
+      // na conta "maria@gmail.com".
+      const emailNormalizado = normalizeEmail(email)
+      if (!emailNormalizado || !password) return fail()
 
       const sql = getDb()
       const rows = await sql`
         SELECT id, email, name, hashed_password, first_name, last_name, phone, profession
-        FROM users WHERE email = ${email} LIMIT 1
+        FROM users WHERE LOWER(email) = ${emailNormalizado} LIMIT 1
       `
 
       if (rows.length === 0) return fail()

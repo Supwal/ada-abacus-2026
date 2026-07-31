@@ -12,6 +12,12 @@ import { Eye, EyeOff } from "lucide-react";
 import Image from "next/image";
 import { toast } from "sonner";
 import { useEffect } from "react";
+import {
+  normalizeEmail,
+  emailErrorMessage,
+  passwordErrorMessage,
+  MIN_SENHA,
+} from "@/lib/validation";
 
 export default function SignupPage() {
   const [formData, setFormData] = useState({
@@ -23,6 +29,8 @@ export default function SignupPage() {
     password: "",
     confirmPassword: "",
   });
+  const [aceitouTermos, setAceitouTermos] = useState(false);
+  const [erroEmail, setErroEmail] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -50,21 +58,45 @@ export default function SignupPage() {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+
+    // Limpa o aviso enquanto o usuário corrige o e-mail
+    if (name === "email") setErroEmail(null);
+  };
+
+  // Valida o e-mail ao sair do campo, antes de o usuário chegar no botão
+  const handleEmailBlur = () => {
+    setErroEmail(formData.email ? emailErrorMessage(formData.email) : null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    // Validações
+    // --- Validações
+    const emailNormalizado = normalizeEmail(formData.email);
+    const problemaEmail = emailErrorMessage(emailNormalizado);
+    if (problemaEmail) {
+      setErroEmail(problemaEmail);
+      toast.error(problemaEmail);
+      setIsLoading(false);
+      return;
+    }
+
+    const problemaSenha = passwordErrorMessage(formData.password);
+    if (problemaSenha) {
+      toast.error(problemaSenha);
+      setIsLoading(false);
+      return;
+    }
+
     if (formData.password !== formData.confirmPassword) {
       toast.error("As senhas não coincidem");
       setIsLoading(false);
       return;
     }
 
-    if (formData.password.length < 6) {
-      toast.error("A senha deve ter pelo menos 6 caracteres");
+    if (!aceitouTermos) {
+      toast.error("É preciso aceitar os Termos de Uso e a Política de Privacidade.");
       setIsLoading(false);
       return;
     }
@@ -73,7 +105,11 @@ export default function SignupPage() {
       const response = await fetch("/api/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          email: emailNormalizado,
+          acceptedTerms: true,
+        }),
       });
 
       const data = await response.json();
@@ -83,10 +119,10 @@ export default function SignupPage() {
       }
 
       toast.success("Conta criada com sucesso!");
-      
+
       // Auto login after signup
       const result = await signIn("credentials", {
-        email: formData.email,
+        email: emailNormalizado,
         password: formData.password,
         redirect: false,
       });
@@ -166,12 +202,23 @@ export default function SignupPage() {
                   id="email"
                   name="email"
                   type="email"
+                  inputMode="email"
+                  autoComplete="email"
                   placeholder="seu@email.com"
                   value={formData.email}
                   onChange={handleInputChange}
+                  onBlur={handleEmailBlur}
                   required
                   disabled={isLoading}
+                  aria-invalid={!!erroEmail}
+                  aria-describedby={erroEmail ? "erro-email" : undefined}
+                  className={erroEmail ? "border-red-500 focus-visible:ring-red-500" : undefined}
                 />
+                {erroEmail && (
+                  <p id="erro-email" className="text-xs text-red-600 mt-1">
+                    {erroEmail}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -215,6 +262,7 @@ export default function SignupPage() {
                     value={formData.password}
                     onChange={handleInputChange}
                     required
+                    minLength={MIN_SENHA}
                     disabled={isLoading}
                     className="pr-10"
                   />
@@ -252,9 +300,46 @@ export default function SignupPage() {
                     {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Mínimo de {MIN_SENHA} caracteres, com pelo menos uma letra e um número.
+                </p>
               </div>
 
-              <Button type="submit" className="w-full" disabled={isLoading}>
+              {/* Aceite dos termos — obrigatório (LGPD) */}
+              <div className="flex items-start gap-2 pt-2">
+                <input
+                  id="aceitouTermos"
+                  name="aceitouTermos"
+                  type="checkbox"
+                  checked={aceitouTermos}
+                  onChange={(e) => setAceitouTermos(e.target.checked)}
+                  disabled={isLoading}
+                  required
+                  className="mt-1 h-4 w-4 shrink-0 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <label htmlFor="aceitouTermos" className="text-xs text-gray-600 leading-relaxed">
+                  Li e aceito os{" "}
+                  <Link
+                    href="/termos"
+                    target="_blank"
+                    className="font-medium text-blue-600 hover:text-blue-500 underline"
+                  >
+                    Termos de Uso
+                  </Link>{" "}
+                  e a{" "}
+                  <Link
+                    href="/privacidade"
+                    target="_blank"
+                    className="font-medium text-blue-600 hover:text-blue-500 underline"
+                  >
+                    Política de Privacidade
+                  </Link>
+                  , e autorizo o tratamento dos meus dados pessoais para criação e uso da conta,
+                  conforme a Lei Geral de Proteção de Dados.
+                </label>
+              </div>
+
+              <Button type="submit" className="w-full" disabled={isLoading || !aceitouTermos}>
                 {isLoading ? "Criando conta..." : "Criar conta"}
               </Button>
             </form>

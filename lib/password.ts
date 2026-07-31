@@ -23,10 +23,24 @@ export async function hashPassword(password: string): Promise<string> {
   return `pbkdf2:${toHex(salt)}:${toHex(hash)}`
 }
 
+/**
+ * Comparação em tempo constante: percorre sempre todos os bytes, para que o
+ * tempo de resposta não revele quantos caracteres do hash foram acertados.
+ */
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false
+  let diff = 0
+  for (let i = 0; i < a.length; i++) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i)
+  }
+  return diff === 0
+}
+
 export async function verifyPassword(password: string, stored: string): Promise<boolean> {
   if (!stored.startsWith('pbkdf2:')) return false
   const [, saltHex, hashHex] = stored.split(':')
+  if (!saltHex || !hashHex) return false
   const salt = fromHex(saltHex)
   const hash = await getKey(password, salt)
-  return toHex(hash) === hashHex
+  return timingSafeEqual(toHex(hash), hashHex)
 }
