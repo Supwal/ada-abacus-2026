@@ -169,6 +169,16 @@ export default function LoginPage() {
                 ← Voltar ao início
               </Link>
             </div>
+
+            <div className="mt-4 text-center text-xs text-gray-400">
+              <Link href="/termos" className="hover:text-gray-600 hover:underline">
+                Termos de Uso
+              </Link>
+              <span className="mx-2">·</span>
+              <Link href="/privacidade" className="hover:text-gray-600 hover:underline">
+                Política de Privacidade
+              </Link>
+            </div>
           </CardContent>
         </Card>
       </div>

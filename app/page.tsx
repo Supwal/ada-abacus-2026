@@ -124,6 +124,18 @@ export default function HomePage() {
           </div>
         </div>
       </main>
+
+      <footer className="border-t border-gray-200 mt-12 py-6">
+        <div className="text-center text-xs text-gray-500 space-x-2">
+          <Link href="/termos" className="hover:text-gray-700 hover:underline">
+            Termos de Uso
+          </Link>
+          <span>·</span>
+          <Link href="/privacidade" className="hover:text-gray-700 hover:underline">
+            Política de Privacidade
+          </Link>
+        </div>
+      </footer>
     </div>
   );
 }

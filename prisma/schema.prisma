@@ -50,6 +50,10 @@ model User {
   image         String?
   hashedPassword String?  @map("hashed_password")
   clerkUserId   String?   @unique @map("clerk_user_id") // ponte com a conta Clerk
+  // Aceite dos Termos de Uso / Política de Privacidade (prova exigida pela LGPD)
+  termsAcceptedAt   DateTime? @map("terms_accepted_at")
+  termsVersion      String?   @map("terms_version")
+  privacyAcceptedAt DateTime? @map("privacy_accepted_at")
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
 
