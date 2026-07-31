@@ -2,6 +2,7 @@ export const runtime = 'edge'
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getDb, getSession } from '@/lib/db'
+import { ownsRecord } from '@/lib/ownership'
 
 export async function GET(request: NextRequest) {
   try {
@@ -109,6 +110,21 @@ export async function POST(request: NextRequest) {
     const userId = users[0].id
     const body = await request.json()
     const { date, startTime, endTime, status, notes, value, paid, clientId, serviceId, locationId } = body
+
+    if (!date) {
+      return NextResponse.json({ error: 'Data é obrigatória' }, { status: 400 })
+    }
+
+    // Os ids vêm do navegador: confirmar que cada um pertence a QUEM está logado.
+    if (clientId && !(await ownsRecord(sql, 'clients', clientId, userId))) {
+      return NextResponse.json({ error: 'Cliente não encontrado' }, { status: 404 })
+    }
+    if (serviceId && !(await ownsRecord(sql, 'services', serviceId, userId))) {
+      return NextResponse.json({ error: 'Serviço não encontrado' }, { status: 404 })
+    }
+    if (locationId && !(await ownsRecord(sql, 'locations', locationId, userId))) {
+      return NextResponse.json({ error: 'Local não encontrado' }, { status: 404 })
+    }
 
     const dateToSave = date + 'T12:00:00'
     const id = `apt_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`

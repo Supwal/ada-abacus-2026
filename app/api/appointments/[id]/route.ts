@@ -2,6 +2,7 @@ export const runtime = 'edge'
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getDb, getSession } from '@/lib/db'
+import { ownsRecord } from '@/lib/ownership'
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
@@ -46,6 +47,17 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     const userId = users[0].id
     const body = await request.json()
     const { date, startTime, endTime, status, notes, value, paid, clientId, serviceId, locationId } = body
+
+    // Os ids vêm do navegador: confirmar que cada um pertence a QUEM está logado.
+    if (clientId && !(await ownsRecord(sql, 'clients', clientId, userId))) {
+      return NextResponse.json({ error: 'Cliente não encontrado' }, { status: 404 })
+    }
+    if (serviceId && !(await ownsRecord(sql, 'services', serviceId, userId))) {
+      return NextResponse.json({ error: 'Serviço não encontrado' }, { status: 404 })
+    }
+    if (locationId && !(await ownsRecord(sql, 'locations', locationId, userId))) {
+      return NextResponse.json({ error: 'Local não encontrado' }, { status: 404 })
+    }
 
     await sql`
       UPDATE appointments SET
