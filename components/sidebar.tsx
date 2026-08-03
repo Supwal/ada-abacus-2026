@@ -130,10 +130,15 @@ export function Sidebar() {
           "fixed left-0 top-0 z-40 h-screen w-64 bg-white border-r border-gray-200 transition-transform lg:translate-x-0",
           isOpen ? "translate-x-0" : "-translate-x-full"
         )}
+        // 100dvh = altura REAL visível no celular. Com h-screen (100vh) o menu
+        // fica mais alto que a tela, porque o 100vh ignora a barra de endereço
+        // do navegador — e o rodapé com o botão "Sair" cai fora do visível.
+        // A classe h-screen continua como reserva para navegador sem dvh.
+        style={{ height: '100dvh' }}
       >
         <div className="flex flex-col h-full">
           {/* Header */}
-          <div className="p-6 border-b border-gray-200">
+          <div className="shrink-0 p-6 border-b border-gray-200">
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 relative">
                 <Image
@@ -152,8 +157,9 @@ export function Sidebar() {
             )}
           </div>
 
-          {/* Menu Items */}
-          <nav className="flex-1 p-4">
+          {/* Menu Items — rola sozinho quando a lista não cabe na tela,
+              em vez de empurrar o botão "Sair" para fora */}
+          <nav className="flex-1 min-h-0 overflow-y-auto p-4">
             <ul className="space-y-2">
               {menuItems.map((item) => {
                 const isActive = pathname === item.href;
@@ -178,8 +184,12 @@ export function Sidebar() {
             </ul>
           </nav>
 
-          {/* Bottom section */}
-          <div className="p-4 border-t border-gray-200">
+          {/* Bottom section — shrink-0 para nunca ser espremido pelo menu */}
+          <div
+            className="shrink-0 p-4 border-t border-gray-200"
+            // Respeita a faixa do gesto de navegação (iPhone sem botão home)
+            style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))' }}
+          >
             <Button
               variant="ghost"
               onClick={handleSignOut}
