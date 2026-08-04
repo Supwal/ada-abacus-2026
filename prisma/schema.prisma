@@ -70,8 +70,29 @@ model User {
   packs          Pack[]
   subscription   Subscription?
   payments       Payment[]
+  channels       Channel[]
 
   @@map("users")
+}
+
+/// Canais de atendimento: onde o cliente fala com a profissional.
+/// O app monta o link (wa.me, ig.me, t.me, perfil do Privacy) a partir daqui.
+model Channel {
+  id        String   @id
+  userId    String   @map("user_id")
+  type      String   // whatsapp | instagram | telegram | privacy
+  handle    String   // número ou nome de usuário
+  greeting  String?  // mensagem de abertura (só o WhatsApp usa)
+  active    Boolean  @default(true)
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, type])
+  @@index([userId])
+  @@map("channels")
 }
 
 model Location {

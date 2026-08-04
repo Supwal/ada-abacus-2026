@@ -79,8 +79,8 @@ const menuItems = [
     icon: CreditCard
   },
   {
-    label: "Redes Sociais",
-    href: "/configuracoes",
+    label: "Canais de Atendimento",
+    href: "/redes-sociais",
     icon: Share2
   },
   {

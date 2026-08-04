@@ -55,7 +55,7 @@ const menuCards = [
     iconColor: "text-red-600"
   },
   {
-    label: "Redes Sociais",
+    label: "Canais de Atendimento",
     href: "/redes-sociais",
     icon: Share2,
     bgColor: "bg-pink-100",
