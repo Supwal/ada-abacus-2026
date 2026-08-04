@@ -642,8 +642,10 @@ export default function PacksPage() {
             </DialogDescription>
           </DialogHeader>
 
-          {/* Formulário — miolo rolável (header e footer ficam fixos) */}
-          <div className="space-y-4 py-4 overflow-y-auto flex-1 min-h-0">
+          {/* Formulário — miolo rolável (header e footer ficam fixos).
+              pr-1 afasta os campos da barra de rolagem, que no celular
+              ficava por cima da borda do campo. */}
+          <div className="space-y-4 py-4 pr-1 overflow-y-auto flex-1 min-h-0">
             {/* Nome */}
             <div className="space-y-2">
               <Label className="text-sm font-medium text-gray-700">Nome do Pack</Label>
